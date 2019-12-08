@@ -1,0 +1,5 @@
+# YAML file with all globel settings
+#     from matlab script ..
+
+H1x:
+  - [ een, twee, drie ]
