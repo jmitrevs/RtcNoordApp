@@ -611,7 +611,7 @@ class FormView(QObject):
 
     # handling of second session
 
-V    # een andere sessie kan een aander aantal sensoren hebben, hoe de mappen?
+    # een andere sessie kan een aander aantal sensoren hebben, hoe de mappen?
 
     @pyqtProperty(str, notify=stateChanged)
     def sessionName(self):
