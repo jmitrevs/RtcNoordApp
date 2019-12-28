@@ -4,6 +4,6 @@ Item {
 
 
     Text {
-	text: 'Nog wat ...\ncrew report, rower reports, ..'
+	text: 'Nog wat ...\n    XY plots, ..'
     }
 }

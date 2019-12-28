@@ -23,13 +23,6 @@ Item {
             }
             
 
-	    // En er iets onder
-	    Text {
-		width: 400
-                Layout.minimumHeight: 50
-		text: 'Pieces links onder'
-	    }
-
 	}
 
       Connections {
@@ -56,19 +49,22 @@ Item {
                 ListView {
                     id: series_list_view
                     height: 180
-		    width: 150
+
                     Layout.fillWidth: true
                     
                     clip: true
                     
                     model: sensorModel
                     delegate: CheckBox {
-                        checked : false;
+                        checked : selected;
+			font.pixelSize: 12
                         text: name
                         onClicked: {
                             selected = checked;
                         }
                     }
+		    // highlight: Rectangle { color: "lightsteelblue"; radius: 5 }
+		    // focus: true
                 }
 
                 Label {
@@ -77,36 +73,60 @@ Item {
                 }
 
 
-		Button {
-		    text: "New piece"
-		    onClicked: draw_mpl.new_piece()
+		
+		RowLayout {
+		   
+		    Button {
+			id: npbutton
+			property color plotColor : "lightblue"  // '#add8e6'
+			text: "New piece"
+			onClicked: {
+			    draw_mpl.new_piece(piecename.text);
+			    if (plotColor == "#add8e6")
+				plotColor = 'red'
+			    else
+				plotColor = 'lightblue'
+
+			}
+			background: Rectangle {
+			    color: npbutton.plotColor
+			}
+		    }
+		    TextField {
+			id: piecename
+			// selectByMouse: true   is iets raars mee?
+			implicitWidth: 120
+			placeholderText: qsTr("Name")
+		    }
+
 		}
 
                 ListView {
                     id: create_pieces_view
-                    height: 180
-		    width: 150
-                    Layout.fillWidth: true
-                    
+		    height: 150
+		    Layout.fillWidth: true
                     clip: true
                     
                     model: makePiecesModel
                     delegate: RowLayout {
-			TextField {
-			    placeholderText: qsTr("PieceName")
-			}
+			
 			Text {
-			    text: 'begin'
+			    width: 60
+			    text: name
 			}
-			Text {
-			    text: 'end'
+			Button {
+			    icon.name: "edit-cut"
+			    icon.source: "images/cut.png"
+			    onClicked: { draw_mpl.remove_piece(index);
+				       }
 			}
-
 		    }
-
                 }
-		
-            }
-        }
+		Button {
+		    text: 'save sessionInfo'
+		    onClicked: draw_mpl.savepieces();
+		}
+	    }
+	}
     }
 }

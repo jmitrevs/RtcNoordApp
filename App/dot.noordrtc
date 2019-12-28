@@ -1,7 +1,0 @@
-# Initial .noordrtc file
-
-# Where all data is to be found wrt the users homedir
-BaseDir: Roeien/Meten/RtcNoordApp
-
-# Name of last session
-Session:  No

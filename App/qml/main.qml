@@ -7,16 +7,44 @@ ApplicationWindow {
     id: applicationWindow
     visible: true
     width: 800
-    height: 480
+    height: 600
     title: qsTr("RTCNoord")
 
+    // Component.onCompleted: console.log("Completed Running!")
+    Component.onCompleted: draw_mpl.selectCurrent()
+
+    FileDialog {
+        id: filedialog
+        nameFilters: ["CSV files (*.csv)", "All Files (*.*)"]
+	folder: draw_mpl.csvDir
+        onAccepted: {
+            draw_mpl.createSessionCsv(fileUrl)
+        }
+    } 
+
+    FileDialog {
+        id: sessiondialog
+        nameFilters: ["YAML files (*.yaml)", "All Files (*.*)"]
+	folder: draw_mpl.sessionDir
+        onAccepted: {
+            draw_mpl.selectSessionFile(fileUrl)
+        }
+    } 
+
+    FileDialog {
+        id: seconddialog
+        nameFilters: ["YAML files (*.yaml)", "All Files (*.*)"]
+	folder: draw_mpl.sessionDir
+        onAccepted: {
+            piece_mpl.selectSecondFile(fileUrl)
+        }
+    } 
 
     MessageDialog {
         id: aboutDialog
         icon: StandardIcon.Information
-        title: qsTr("About")
-        text: "RTCNoord app"
-        informativeText: qsTr("Verwerk Powerline data")
+        title: qsTr("About..")
+        text: "RtcNoord application."
     }
 
     Action {
@@ -52,15 +80,15 @@ ApplicationWindow {
         Menu {
             title: qsTr("&Session")
             MenuItem {
-                text: qsTr("C&reate session")
-                onTriggered: Qt.quit()
+                text: qsTr("C&reate session (csv)")
+                onTriggered: filedialog.open()
             }
             MenuItem {
                 text: qsTr("S&elect session")
-                onTriggered: Qt.quit()
+                onTriggered: sessiondialog.open()
             }
             MenuItem {
-                text: qsTr("Clear caches")
+                text: qsTr("End program")
                 onTriggered: Qt.quit()
             }
         }
@@ -83,7 +111,6 @@ ApplicationWindow {
                 onTriggered: aboutDialog.open()
             }
         }
-
     }
 
 
@@ -105,17 +132,30 @@ ApplicationWindow {
             id: iets2
         }
 
-        SessionInfo {
+        BoatProfile {
             id: iets3
         }
 
-        Profile {
+        CrewProfile {
             id: iets4
         }
 
-        NogWat{
+	Repeater {
+	    model: draw_mpl.nmbrRowers
+	    RowerProfile {
+		id: rprof
+		rindex : index
+	    }
+
+	}
+        SessionInfo {
             id: iets5
         }
+
+        NogWat{
+            id: iets6
+        }
+
     }
 
     footer: TabBar {
@@ -139,20 +179,44 @@ ApplicationWindow {
         TabButton {
             id: tabButton2
 	    implicitHeight:20
-            text: qsTr("Session info")
+            text: qsTr("Boat")
         }
 
         TabButton {
             id: tabButton3
 	    implicitHeight:20
-            text: qsTr("Profile")
+            text: qsTr("Crew")
         }
+
+	Repeater {
+	    id: tab_rr
+	    model: draw_mpl.nmbrRowers
+            TabButton {
+	    implicitHeight:20
+		text: { "Rower " + index }
+            }
+	}
 
         TabButton {
             id: tabButton4
 	    implicitHeight:20
+            text: qsTr("Session info")
+        }
+
+        TabButton {
+            id: tabButton5
+	    implicitHeight:20
             text: qsTr("Nog wat ..")
 	}
     }
+
+    // En er iets onder
+    Text {
+        anchors.bottom: parent.bottom
+	
+
+	text: draw_mpl.statusText
+    }
+
 }
 
