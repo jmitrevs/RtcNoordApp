@@ -1,0 +1,11 @@
+# Initial .rtcnoord file
+
+# Where all data is to be found wrt the users homedir
+BaseDir: Roeien/Meten/RtcNoordApp
+
+# Name of current session of None if none
+Session:  None
+
+# Name of secondary session of None if none
+Session2:  None
+

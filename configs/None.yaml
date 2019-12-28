@@ -1,0 +1,14 @@
+Header: []
+Header2: []
+uniqHeader: []
+CrewInfo:
+   The Crew
+Misc: "Dummy session"
+Pieces: []
+Powerline: no_data
+State: initial
+Tempi:
+- !!python/tuple [1, 20]
+Timestamp: 2001-12-15 02:59:43.100000
+Traces: no_traces
+Video: [filename, index]
