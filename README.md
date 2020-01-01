@@ -5,6 +5,7 @@ This system collects data from a rowing boat using various sensors.
 
 ## Usage
 
+  - Currently, start the program from the App directory with: "python main.py"
   - Create a csv-file from the interesting part of a session using the Powerline software and put it in the csv-data directory.
   - Start the app and select the csv-file from the menu.
     Now data is preprocessed and saved in a sessionInfo-file and a dataObject-file.
@@ -37,7 +38,15 @@ The currently selected pieces are shown in the right part of the screen.
 ### View Piece
 
 In the View Piece tab we can study the traces in more detail.
-In this example two different sessions a selected to compare the trace of these two sessions.
+In this example two different sessions are selected to compare traces from these sessions.
+Here the gate-angle and -force are shows from two different scullers.
+Note that the traces are not yet "normalised" to make a better comparision possible.
+
+![Eerste](docs/ViewPiece.png)
+
+### Using video
+
+Although not working completely, we already can put a video next to a view piece, where the red line is to be the point the still is showing.
 
 ![Eerste](docs/ViewPiece.png)
 
