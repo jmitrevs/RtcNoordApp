@@ -604,9 +604,8 @@ class FormView(QObject):
 
         self.tempoline = self.ax1.vlines(self.videoStart, 0, 20,
                                                  transform=self.ax1.get_xaxis_transform(), colors='r')
+
         vidToPos(self.videoStart)
-
-
 
         if has_series and self.legend:
             self.ax1.legend()
@@ -721,17 +720,15 @@ class FormView(QObject):
 
     @pyqtSlot()
     def frame_step(self):
-        print('frame step')
         # sendToMpv('frame-step')
-        self.videoStart += 0.2
-        self.update_figure
+        self.videoStart += 0.04
+        self.update_figure()
 
     @pyqtSlot()
     def frame_back_step(self):
-        print('frame back step')
         # sendToMpv('frame-back-step')
-        self.videoStart -= 0.2
-        self.update_figure
+        self.videoStart -= 0.04
+        self.update_figure()
 
     # handling of second session
 

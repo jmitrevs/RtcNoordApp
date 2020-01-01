@@ -81,14 +81,18 @@ def main():
 
     """
 
-    # video
-    # mainly for mpv program (werkt nog niet)
+    # mainly for mpv program
     sys.exitfunc = cleanup_mpv
 
     # test mpv availability!
+    #   bij eerst afsluiten van mpv, en dan de app blijft mpv hangen vanwege de socket.
+    #         ps aux|fgrep mpv|fgrep rtcsocket | awk '{print $2}'
+    #   voorlopig een scriptje om die steeds op te ruimen. Later python-mpv gebruiken?
+    #   dit kan ook later, pas bij gebruik
     command = '/usr/bin/mpv --input-ipc-server=/tmp/rtcsocket --idle'
     args = shlex.split(command)
     gd.submpv = subprocess.Popen(args, stdout=subprocess.DEVNULL)
+
     time.sleep(0.2)
 
     gd.vsocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
