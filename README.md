@@ -48,7 +48,7 @@ Note that the traces are not yet "normalised" to make a better comparision possi
 
 Although not working completely, we already can put a video next to a view piece, where the red line is to be the point the still is showing.
 
-![Eerste](docs/ViewPiece.png)
+![Eerste](docs/Video.png)
 
 ### Boat Profile
 
