@@ -1,6 +1,6 @@
 """Utility functions for the RTCnoord app"""
 
-import sys, os, math, time, csv, yaml, copy
+import sys, os, math, time, csv, yaml, copy, shlex
 
 import numpy as np
 from scipy import signal
@@ -43,6 +43,11 @@ Session: None
 def sessionFile(session):
     """Return the path to the session."""
     file = os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/session_data/' + session + '.yaml'
+    return file
+
+def videoFile(mp4file):
+    """Return the path to the session."""
+    file = os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/videos/' + mp4file
     return file
 
 
@@ -284,6 +289,17 @@ def tempi(gateData):
     return catchList
     # return tempoList
 
+def n_catches(n, x):
+    """Return n catches starting at x"""
+    ll = []
+    for i, (j, _) in enumerate(gd.sessionInfo['Tempi']):
+        if j < x:
+            continue
+        ll.append(j)
+        if len(ll) == n:
+            break
+    return ll
+
 # 
 def prof_pieces(pieces):
     """Returns profile piece indices in correct order or [] if not complete"""
@@ -310,3 +326,18 @@ def prof_pieces(pieces):
         return r
     else:
         return []
+
+
+def sendToMpv(command):
+    c = shlex.split(command)
+    # splits met komma's
+    lst = ''
+    for i in c:
+        lst += '"' + i + '"' + ', '
+    lst = bytes(lst[0:-2], 'utf-8')
+    cmd = b'{ "command": [ ' + lst + b' ] }\n'
+    gd.vsocket.send(cmd)
+    # print(cmd)
+
+def vidToPos(i):
+    sendToMpv('seek ' + str(i) + ' absolute')

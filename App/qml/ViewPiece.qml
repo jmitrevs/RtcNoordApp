@@ -24,13 +24,26 @@ Item {
             
 
 
-	    /* En er iets onder
-	    Text {
-		width: 400
-                Layout.minimumHeight: 50
-		text: 'View piece links onder'
+	    Row {
+		Text {
+		    width: 400
+                    Layout.minimumHeight: 50
+		    text: 'text:tempo(s), fix session (ro), ..'
+		}
+
+		Button {
+		    text: "Secondary"
+		    onClicked: { seconddialog.open()
+			       }
+		}
+
+		Button {
+		    text: "Video"
+		    onClicked: { piece_mpl.videoOpen()
+			       }
+		}
+
 	    }
-	    */
 	}
 
 	Connections {
@@ -53,9 +66,10 @@ Item {
             Layout.alignment: Qt.AlignLeft | Qt.AlignTop
             Layout.fillHeight: true
 	    
+	    Column {
 	    Row {
 		ColumnLayout {
-                    id: right_vbox
+
                     spacing: 2
                 
                     Label {
@@ -99,11 +113,8 @@ Item {
                     id: right_vbox1
                     spacing: 2
                 
-		    Button {
+		    Text {
 			text: piece_mpl.sessionName
-
-			onClicked: { seconddialog.open()
-				   }
 		    }
 
                     ListView {
@@ -137,9 +148,36 @@ Item {
 		}
 
 
+	    }
+
+
+
+		Row {
+		    Button {
+			icon.name: "edit-cut"
+			icon.source: "images/cut.png"
+			onClicked: { piece_mpl.frame_step()}
+			       }
+		    }
+
+		    Button {
+			icon.name: "edit-cut"
+			icon.source: "images/cut.png"
+			onClicked: { piece_mpl.frame_back_step()
+				   }
+		    }
+		    Text {
+			width: 20
+			Layout.minimumHeight: 50
+			text: 'Video control'
+		    }
+
+
+	    }
+
 
 
 	    }
 	}
-    }
 }
+

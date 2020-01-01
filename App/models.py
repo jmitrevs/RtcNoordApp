@@ -220,11 +220,16 @@ class BoatTableModel(QAbstractTableModel):
         self.endRemoveRows()
     
     @pyqtSlot()
+    def set_averaging(self):
+        print("Zet n")
+        
+
+    @pyqtSlot()
     def make_profile(self):
         pcs = gd.sessionInfo['Pieces']
         p = prof_pieces(pcs)
         if p == []:
-            print(f'Error profiling, number of pieces {len(pcs)}')
+            # print(f'Error profiling, number of pieces {len(pcs)}')
             gd.profile_available = False
             self.del_all()
             if gd.profile_available:

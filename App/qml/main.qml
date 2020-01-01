@@ -6,7 +6,7 @@ import QtQuick.Dialogs 1.3
 ApplicationWindow {
     id: applicationWindow
     visible: true
-    width: 800
+    width: 900
     height: 600
     title: qsTr("RTCNoord")
 
@@ -18,7 +18,8 @@ ApplicationWindow {
         nameFilters: ["CSV files (*.csv)", "All Files (*.*)"]
 	folder: draw_mpl.csvDir
         onAccepted: {
-            draw_mpl.createSessionCsv(fileUrl)
+            draw_mpl.createSessionCsv(fileUrl);
+	    
         }
     } 
 
@@ -116,7 +117,7 @@ ApplicationWindow {
 
     StackLayout {
     // SwipeView {
-        id: swipeView
+        id: stackLayout
         width: parent.width
 	height: parent.height
 	
@@ -161,7 +162,7 @@ ApplicationWindow {
     footer: TabBar {
         id: tabBar
         implicitWidth: 800
-        currentIndex: swipeView.currentIndex
+        currentIndex: stackLayout.currentIndex
 
 
         TabButton {

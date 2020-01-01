@@ -1,5 +1,8 @@
 """Global data for the app."""
 
+#
+config = None
+
 # data from the GlobalSettings yaml file
 globals     = {}
 
@@ -48,3 +51,7 @@ boatPlots = None
 
 # the averaged data and normalized data
 norm_arrays = None
+
+# mpv and video socket
+submpv = None
+vsocket = None

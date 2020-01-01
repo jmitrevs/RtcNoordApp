@@ -94,7 +94,7 @@ Item {
 		    }
 		    TextField {
 			id: piecename
-			// selectByMouse: true   is iets raars mee?
+			selectByMouse: true   // is iets raars mee?
 			implicitWidth: 120
 			placeholderText: qsTr("Name")
 		    }
@@ -108,15 +108,17 @@ Item {
                     clip: true
                     
                     model: makePiecesModel
-                    delegate: RowLayout {
+                    delegate: Row {
 			
 			Text {
-			    width: 60
+			    width: 40
 			    text: name
 			}
 			Button {
+			    width: 50
+			    height: 40
 			    icon.name: "edit-cut"
-			    icon.source: "images/cut.png"
+ 			    icon.source: "images/cut.png"
 			    onClicked: { draw_mpl.remove_piece(index);
 				       }
 			}

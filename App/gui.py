@@ -1,7 +1,7 @@
 """The Gui related classes for the RTCnoord app."""
 
 import os, re, yaml, time
-from shutil import copyfile
+from shutil import copyfile, move
 import numpy as np
 
 from PyQt5.QtCore import QVariant, QObject, pyqtSignal, pyqtSlot, pyqtProperty, QMetaObject, Qt, QTimer, QByteArray, QAbstractListModel, QModelIndex
@@ -12,6 +12,8 @@ import globalData as gd
 from utils import *
 
 from models import *
+
+import matplotlib.pyplot as plt
 
 # matplotlib plot in Pieces
 class FormPieces(QObject):
@@ -34,6 +36,8 @@ class FormPieces(QObject):
         self.ax2 = None
 
         self.traceCentre = 0  # halverwege de x-as
+        self.scale = 1
+        self.scale_r = 1
         
         # with legends it becomes slow
         self._legend = True
@@ -58,19 +62,23 @@ class FormPieces(QObject):
         # mode:   0:uit, 1:begin, 2:end,  3: creer gui entry en -> 1  (via qui -> 0)
         self.pmode = 0
 
-    def onclick(self, event):
+    def onclick_d(self, event):
         try:
+            """
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                  ('double' if event.dblclick else 'single', event.button,
+                   event.x, event.y, event.xdata, event.ydata))
+            """
             if event.inaxes == self.ax1:
                 # ax1 processing
                 #   zetten pieces (button 1)
                 if self.pmode == 1:
-                    self.mbegin = int(event.xdata*Hz)
-                    # set and remember a green marker (later also in rating plot)
+                    b = int(event.xdata*Hz)
+                    # we start a piece 2/5 second before the catch, better for displaying
+                    self.mbegin = n_catches(1, b)[0]-20
                     self.pmode = 2
                 elif self.pmode == 2:
                     self.mend = int(event.xdata*Hz)
-                    # set and remember a green marker (later also in rating plot)
-                    # change color of "New Piece" button"
                     self.pmode = 3
                 elif self.pmode == 3:
                     # will not occurr when the piece is accepted
@@ -92,13 +100,38 @@ class FormPieces(QObject):
                 pass
             
         except TypeError:
-            # click outside the plot, ignore
+            # clicked outside the plot, ignore
             pass
 
-        # nog uitwerken voor button 1, 3, up en down
 
     # cid = fig.canvas.mpl_connect('button_press_event', onclick)
     # fig.canvas.mpl_disconnect(cid)
+
+    def onclick_u(self, event):
+        try:
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                  ('double' if event.dblclick else 'single', event.button,
+                   event.x, event.y, event.xdata, event.ydata))
+            print('Up')
+        except TypeError:
+            pass
+
+    def onscroll(self, event):
+        try:
+            if event.inaxes == self.ax1:
+                self.scale += event.step*0.05
+                if self.scale < 0.05:
+                    self.scale = 0.05
+                self.update_figure()
+            elif event.inaxes == self.ax2:
+                pass
+            else:
+                pass
+
+        except TypeError:
+            pass
+
+
 
     @property
     def figure(self):
@@ -127,7 +160,9 @@ class FormPieces(QObject):
         # ax.get_xlim()
         # ax.set_xlim(a, b)
         
-        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
+        cid1 = fig.canvas.mpl_connect('button_press_event', self.onclick_d)
+        # cid2 = fig.canvas.mpl_connect('button_release_event', self.onclick_u)
+        cid3 = fig.canvas.mpl_connect('scroll_event', self.onscroll)
 
         # Signal connection
         self.stateChanged.connect(self._figure.canvas.draw_idle)
@@ -220,7 +255,7 @@ class FormPieces(QObject):
             self.ax1.plot([e/Hz], [0], marker='<', color='r')
 
         # self.ax1.set_xlim((self.xFrom, self.xTo))
-        self.ax1.set_xlim((self.traceCentre - self.pieceWidth, self.traceCentre + self.pieceWidth))
+        self.ax1.set_xlim((self.traceCentre - self.pieceWidth*self.scale, self.traceCentre + self.pieceWidth*self.scale))
 
         if has_series and self.legend:
             self.ax1.legend()
@@ -315,11 +350,15 @@ class FormPieces(QObject):
         session_file = session_dir + session + '.yaml'
         cache_file = cache_dir + session + '.npy'
 
-        # remove session and caches files if they exist
+        # move session in old subdir and remove cache file if they exist
         try:
             fd = open(session_file, 'r')
             fd.close()
-            os.remove(session_file)
+            try:
+                os.mkdir(session_dir + "/old")
+            except FileExistsError:
+                pass
+            move(session_file, session_dir + 'old')
         except IOError:
             # assume no session_file
             pass
@@ -400,10 +439,9 @@ class FormPieces(QObject):
             gd.dataObject = np.load(cache_file)
         except IOError:
             print(f'Cannot read cachefile, should not happen  {cache_file}')
-            gd.config['Session'] = 'None'
-            saveConfig(gd.config)
-            exit()
-            
+            print("Repairing cache file,")
+            makecache(cache_file)
+
         calibrate()
         self.update_the_models(session)
         gd.boattablemodel.make_profile()
@@ -429,6 +467,8 @@ class FormView(QObject):
         self.xFrom2 = 0
         self.xTo2 = 1
 
+        self.scale = 1
+
         self.dd = None
         self.ee = None
 
@@ -440,6 +480,8 @@ class FormView(QObject):
 
         # length of segment shown in the plots
         self._length = None
+        self._starttime = 0
+        self.videoStart = 0
         
         # the part we show
         self._window_tr = None
@@ -452,7 +494,33 @@ class FormView(QObject):
         
         self.update_figure()
 
+    def onclick_d(self, event):
+        try:
+            """
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                  ('double' if event.dblclick else 'single', event.button,
+                   event.x, event.y, event.xdata, event.ydata))
+            """
+            if event.inaxes == self.ax1:
+                self.videoStart = event.xdata
+                self.update_figure()
+            else:
+                pass
+            
+        except TypeError:
+            # clicked outside the plot, ignore
+            pass
 
+
+    def onscroll(self, event):
+        try:
+            self.scale += event.step*0.05
+            if self.scale < 0.05:
+                self.scale = 0.05
+            self.update_figure()
+
+        except TypeError:
+            pass
 
     @property
     def figure(self):
@@ -468,6 +536,9 @@ class FormView(QObject):
         # Signal connection
         self.stateChanged.connect(self._figure.canvas.draw_idle)
         self.legendChanged.connect(self._figure.canvas.draw_idle)
+
+        cid1 = fig.canvas.mpl_connect('button_press_event', self.onclick_d)
+        cid3 = fig.canvas.mpl_connect('scroll_event', self.onscroll)
         
     @pyqtProperty(bool, notify=legendChanged)
     def legend(self):
@@ -529,14 +600,25 @@ class FormView(QObject):
                 name = self._data2.data(model_index, DataSensorsModel.NameRole)                
                 i = self._data2.data(model_index, DataSensorsModel.DataRole) + 1
                 values = self._window_tr2[:, i]
-                self.ax1.plot(self.times, values, linewidth=0.6,  label=name, linestyle='--')
+                self.ax1.plot(self.times, values, linewidth=0.7,  label=name, linestyle='--')
+
+        self.tempoline = self.ax1.vlines(self.videoStart, 0, 20,
+                                                 transform=self.ax1.get_xaxis_transform(), colors='r')
+        vidToPos(self.videoStart)
+
 
 
         if has_series and self.legend:
             self.ax1.legend()
 
-        self.ax1.set_xlim((self.xFrom, self.xTo))
-        # Hoe de beginwaarde erbij optellen?
+        #
+        distance = (self.xTo - self.xFrom) * self.scale
+
+        self.ax1.set_xlim((self.xFrom, self.xFrom+distance))
+        # start at correct beginvalue
+        locs = self.ax1.get_xticks()
+        ticks = [item+self._starttime for item in locs]
+        self.ax1.set_xticklabels(ticks)
 
         self.stateChanged.emit()
 
@@ -545,23 +627,30 @@ class FormView(QObject):
            Limit view to 120 seconds max"""
         if piece:
             xFrom = x
-            if len(self._traces[x:, 1]) > 120*Hz:
-                xTo = x + 120*Hz
-            else:
-                xTo = x + len(self._traces[x: y, 1])
+            self._starttime = int(x/Hz)
+            xTo = x + len(self._traces[x: y, 1])
             self._length = xTo - xFrom
             self._window_tr = self._traces[xFrom: xTo, :]
             self.times = list(map( lambda x: x/Hz, list(range(xTo-xFrom))))
-            # hoe beginwaarde erbij optellen in de plot?
-            self.xFrom = int((-50)/Hz)
-            self.xTo =  int((y-x+50)/Hz)
+            self.xFrom = 0
+            self.xTo =  int((self._length)/Hz)
+
+            if self.secondary:
+                if len(self._window_tr2) > self._length:
+                    window2 = np.copy(self._window_tr2[0: self._length, :])
+                    self._window_tr2 = window2
+                else:
+                    a, _ = self._window_tr.shape
+                    s, b = self._window_tr2.shape
+                    window2 = np.copy(self._window_tr2)
+                    window2.resize((a, b))
+                    window2[s:, :] = np.nan
+                    self._window_tr2 = window2
 
         else:
-            xFrom = 0*Hz
-            if len(self._traces[1: -1, 1]) > 120*Hz:
-                xTo = 120*Hz
-            else:
-                xTo = len(self._traces[1: -1, 1])
+            self._starttime = 0
+            xFrom = 0
+            xTo = len(self._traces[1: -1, 1])
             self._length = xTo - xFrom
             self._window_tr = self._traces[xFrom: xTo, :]
             self.times = list(map( lambda x: x/Hz, list(range(xTo-xFrom))))
@@ -581,7 +670,6 @@ class FormView(QObject):
 
     # aangeroepen vanuit FromPieces (dan 2de sessie eruit) en lokaal bij nieuwe secondary
     def set_data_traces(self, local=False):
-        print(f'set data traces {local}')
         self._data.load_sessionInfo(gd.sessionInfo['uniqHeader'])
         self._traces = gd.dataObject
         gd.data_model2.set_all(gd.sessionInfo['Pieces'])
@@ -589,7 +677,10 @@ class FormView(QObject):
         if not local:
             # always start without a secondary session
             self.secondary = False
+            gd.config['Session2'] = ''
+            saveConfig(gd.config)
             gd.data_model5.del_all()
+            self._starttime = 0
             
         if self.secondary:
             gd.data_model4.del_all()
@@ -599,15 +690,48 @@ class FormView(QObject):
 
         strt, end = self.set_windows()
         if self.secondary:
-            self._window_tr2 = np.copy(self._traces2[strt: end, :])
-            print(self._window_tr2.shape)
-            if self._window_tr2.shape[0] < self._length:
-                self._window_tr2.resize(self._window_tr.shape)
-                print(self._window_tr2.shape)
-                # evt. Nan's van maken
-            print(f'set_data_tr {len(self.times)}')
-            
+            window2 = self._traces2[strt: end, :]
+            size = window2.shape[0]
+            if size < self._length:
+                a, _ = self._window_tr.shape
+                _, b = window2.shape
+                self._window_tr2 = np.copy(window2)
+                self._window_tr2.resize((a, b))
+                self._window_tr2[size:, :] = np.nan
+            else:
+                #
+                end = strt + self._length
+                self._window_tr2 = np.copy(self._traces2[strt: end, :])
+            # normalise to compare better (alleen als we met pieces bezig zijn)
         self.update_figure()
+
+
+    @pyqtSlot()
+    def videoOpen(self):
+        print('Start video use')
+        sendToMpv('set_property window-scale 0.5')
+        sendToMpv('set_property pause yes')
+        # uit sesionInfo halen
+        v = gd.sessionInfo['Video']
+        file = videoFile(v[0])
+        sendToMpv('loadfile ' + file)
+        # print('loadfile ' + file + ' ' + str(v[1]))
+        time.sleep(0.2)
+        vidToPos(v[1])
+
+    @pyqtSlot()
+    def frame_step(self):
+        print('frame step')
+        # sendToMpv('frame-step')
+        self.videoStart += 0.2
+        self.update_figure
+
+    @pyqtSlot()
+    def frame_back_step(self):
+        print('frame back step')
+        # sendToMpv('frame-back-step')
+        self.videoStart -= 0.2
+        self.update_figure
 
     # handling of second session
 
@@ -687,15 +811,20 @@ class FormView(QObject):
         for i in gd.data_model5.alldata():        
             if i.name() == name:
                 xFrom2, xTo2 = i.data()
+                # zet xFrom2 op eerste catch
                 self.xFrom2, self.xTo2 = xFrom2/Hz, xTo2/Hz
-                self._window_tr2 = np.copy(self._traces2[xFrom2: xFrom2+len(self.times), :])
-                print(self._window_tr2.shape)
-                if self._window_tr2.shape[0] < self._length:
-                    self._window_tr2.resize(self._window_tr.shape)
-                    print(self._window_tr2[0:40, 1])
-                    print(self._window_tr2[3800:3840, 1])
-                    print(self._window_tr2[5960:6000, 1])
-                    print(f'en nu {self._window_tr2.shape}')
+                self._window_tr2 = np.copy(self._traces2[xFrom2: xFrom2+self._length, :])
+                size = self._window_tr2.shape[0]
+                if size < self._length:
+                    a, _ = self._window_tr.shape
+                    _, b = self._window_tr2.shape
+                    self._window_tr2.resize((a, b))
+                    self._window_tr2[size:, :] = np.nan
+                else:
+                    end = xFrom2 + self._length
+                    self._window_tr2 = np.copy(self._traces2[xFrom2: end, :])
+                    
+                # normalise to compare better
 
         self.update_figure()
 
@@ -810,7 +939,114 @@ class BoatForm(QObject):
             self.drie.remove()
             """
 
-"""
+
+# matplotlib plot in BoatProfile
+class CrewForm(QObject):
+
+    legendChanged = pyqtSignal()
+    statusTextChanged = pyqtSignal()
+    stateChanged = pyqtSignal()
+
+    def __init__(self, parent=None, data=None, traces=None):
+        QObject.__init__(self, parent)
+
+        self._status_text = ""
+        self._figure = None
+        self.ax1 = None
+        self.ax2 = None
+        self.ax3 = None
+        self.ax4 = None
+
+        self.een = None
+        self.twee = None
+        self.drie = None
+        
+        self._legend = False
+
+        self._data = data
+
+    @property
+    def figure(self):
+        return self._figure
+    
+    @figure.setter
+    def figure(self, fig):
+        self._figure = fig
+        self._figure.set_facecolor('white')
+        gs = self._figure.add_gridspec(2, 2)
+        self.ax1 = self._figure.add_subplot(gs[0, 0])
+        self.ax2 = self._figure.add_subplot(gs[0, 1])
+        self.ax3 = self._figure.add_subplot(gs[1, 0])
+        self.ax4 = self._figure.add_subplot(gs[1, 1])
+
+        # Signal connection
+        self.stateChanged.connect(self._figure.canvas.draw_idle)
+        self.legendChanged.connect(self._figure.canvas.draw_idle)
+        
+        self.update_figure()
+        
+    @pyqtProperty(bool, notify=legendChanged)
+    def legend(self):
+        return self._legend
+    
+    @legend.setter
+    def legend(self, legend):
+        if self.figure is None:
+            return
+            
+        if self._legend != legend:
+            self._legend = legend
+            if self._legend:
+                self.axes.legend()
+            else:
+                leg = self.axes.get_legend()
+                if leg is not None:
+                    leg.remove()
+            self.legendChanged.emit()
+
+    @pyqtSlot()
+    def update_figure(self):
+        if self.figure is None:
+            return
+    
+        self.ax1.clear()
+        self.ax1.grid(True)
+        self.ax1.set_title('Snelheid')
+        self.ax2.clear()
+        self.ax2.grid(True)
+        self.ax2.set_title('Versnelling')
+        self.ax3.clear()
+        self.ax3.grid(True)
+        self.ax3.set_title('Pitch')
+        self.ax4.clear()
+        self.ax4.grid(True)
+        self.ax4.set_title('Versnelling/Tempo')
+
+        # do the plotting
+        # bootsnelheid, accel, pitch
+        if gd.profile_available:
+            sensors = gd.sessionInfo['Header']
+            self.een = self.ax1.plot(gd.norm_arrays[:, sensors.index('Speed')], linewidth=0.6)
+            self.twee = self.ax2.plot(gd.norm_arrays[:, sensors.index('Accel')], linewidth=0.6)
+            self.drie = self.ax3.plot(gd.norm_arrays[:, sensors.index('Pitch Angle')], linewidth=0.6)
+
+        if self.legend:
+            self.ax1.legend()
+
+        self.stateChanged.emit()
+
+    def del_all(self):
+        if gd.profile_available:
+            for l in self.een:
+                l.remove()
+            gd.profile_available = False
+            self.update_figure()
+            """ deze kennelijk niet nodig
+            self.twee.remove()
+            self.drie.remove()
+            """
+
+            """
 min/max in sessionInfo voor ieder sensor
 voor display is de eenheid niet van belang, dus alles goed schalen adhv min/max
 evt. meerdere schaken ivm verschilende nulpunten, bijv. bij alleen positieve waarden

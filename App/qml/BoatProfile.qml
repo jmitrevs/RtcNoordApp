@@ -42,6 +42,13 @@ Item {
 		    boatTableView.forceLayout()
 		}
 	    }
+	    Button {
+		text: 'Averaging'
+		onPressed: {
+		    prof_1.set_averaging()
+		    boatTableView.forceLayout()
+		}
+	    }
 	}
 	Text {
 	    text: 'beneden'

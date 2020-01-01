@@ -8,7 +8,7 @@ Matplotlib is used for the graphs.
 
 """
 
-import sys, os, math, time, csv, yaml
+import sys, os, socket, subprocess, math, time, csv, yaml, shlex
 
 import numpy as np
 
@@ -66,6 +66,12 @@ def interactive(session=None):
 
     # print(gd.sessionInfo)
     
+
+def cleanup_mpv():
+    print('Cleanup mpv at exit')
+    gd.submpv.kill()
+    del(gd.submpv)
+    
 def main():
     """The main entry point when used as regular app
 
@@ -74,6 +80,29 @@ def main():
     Either an existing session or  new one using a csv-file.
 
     """
+
+    # video
+    # mainly for mpv program (werkt nog niet)
+    sys.exitfunc = cleanup_mpv
+
+    # test mpv availability!
+    command = '/usr/bin/mpv --input-ipc-server=/tmp/rtcsocket --idle'
+    args = shlex.split(command)
+    gd.submpv = subprocess.Popen(args, stdout=subprocess.DEVNULL)
+    time.sleep(0.2)
+
+    gd.vsocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        gd.vsocket.connect('/tmp/rtcsocket')
+    except ConnectionRefusedError:
+        print('connected to socket refused. waarom?')        
+        gd.submpv.kill()
+        del(gd.submpv)
+    print('Started mpv, connected to socket')
+    # en dan met send en recv communiceren. Moet recv in aparte thread?
+
+    # gd.vsocket.send(b'{ "command": [ "loadfile", "/home/sietse/RtcNoord/videos/Boukje_meting_1.mp4" ] }\n')
+
 
     gd.config = startup()
     # always start without secondary session
@@ -121,6 +150,11 @@ def main():
     gd.boatPlots = BoatForm()
     context.setContextProperty("boat_mpl", gd.boatPlots)
 
+    # Crew
+    gd.crewPlots = CrewForm()
+    context.setContextProperty("crew_mpl", gd.crewPlots)
+
+
     engine.rootContext().setContextProperty("boatTableModel", gd.boattablemodel)
 
     engine.load("qml/main.qml")
@@ -129,6 +163,7 @@ def main():
     gd.mainPieces.figure = win.findChild(QObject, "pieces").getFigure()
     gd.mainView.figure = win.findChild(QObject, "viewpiece").getFigure()
     gd.boatPlots.figure = win.findChild(QObject, "viewboat").getFigure()
+    gd.crewPlots.figure = win.findChild(QObject, "viewcrew").getFigure()
 
     engine.quit.connect(app.quit)
     sys.exit(app.exec_())
