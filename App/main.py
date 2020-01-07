@@ -8,7 +8,7 @@ Matplotlib is used for the graphs.
 
 """
 
-import sys, os, socket, subprocess, math, time, csv, yaml, shlex
+import sys, os, math, time, csv, yaml, shlex
 
 import numpy as np
 
@@ -68,7 +68,6 @@ def interactive(session=None):
     
 
 def cleanup_mpv():
-    print('Cleanup mpv at exit')
     gd.submpv.kill()
     del(gd.submpv)
     
@@ -84,38 +83,15 @@ def main():
     # mainly for mpv program
     sys.exitfunc = cleanup_mpv
 
-    # test mpv availability!
-    #   bij eerst afsluiten van mpv, en dan de app blijft mpv hangen vanwege de socket.
-    #         ps aux|fgrep mpv|fgrep rtcsocket | awk '{print $2}'
-    #   voorlopig een scriptje om die steeds op te ruimen. Later python-mpv gebruiken?
-    #   dit kan ook later, pas bij gebruik
-    command = '/usr/bin/mpv --input-ipc-server=/tmp/rtcsocket --idle'
-    args = shlex.split(command)
-    gd.submpv = subprocess.Popen(args, stdout=subprocess.DEVNULL)
-
-    time.sleep(0.2)
-
-    gd.vsocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        gd.vsocket.connect('/tmp/rtcsocket')
-    except ConnectionRefusedError:
-        print('connected to socket refused. waarom?')        
-        gd.submpv.kill()
-        del(gd.submpv)
-    print('Started mpv, connected to socket')
-    # en dan met send en recv communiceren. Moet recv in aparte thread?
-
-    # gd.vsocket.send(b'{ "command": [ "loadfile", "/home/sietse/RtcNoord/videos/Boukje_meting_1.mp4" ] }\n')
-
-
     gd.config = startup()
     # always start without secondary session
     gd.config['Session2'] = None
     gd.globals = readGlobals()
 
-
+    # sys_argv = sys.argv
+    # sys_argv += ['--style', 'material']
     app = QGuiApplication(sys.argv)
-
+    
     # needed by filedialog
     app.setOrganizationName("RTC noord")
     app.setOrganizationDomain("RTC")
@@ -150,7 +126,7 @@ def main():
         
     # Boat
     gd.boattablemodel = BoatTableModel()
-    context.setContextProperty("prof_1", gd.boattablemodel)
+    context.setContextProperty("boatTableModel", gd.boattablemodel)
     gd.boatPlots = BoatForm()
     context.setContextProperty("boat_mpl", gd.boatPlots)
 
@@ -158,8 +134,6 @@ def main():
     gd.crewPlots = CrewForm()
     context.setContextProperty("crew_mpl", gd.crewPlots)
 
-
-    engine.rootContext().setContextProperty("boatTableModel", gd.boattablemodel)
 
     engine.load("qml/main.qml")
 

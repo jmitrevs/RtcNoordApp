@@ -35,18 +35,26 @@ class FormPieces(QObject):
         self.ax1 = None
         self.ax2 = None
 
-        self.traceCentre = 0  # halverwege de x-as
+        # in seconds
+        self.xFrom = 0
+        self.xTo = 1
+        self._starttime = 0
+
+        self.traceCentre = 30  # halverwege de x-as
         self.scale = 1
         self.scale_r = 1
+        self.panon = False
+        self.pandistance = 0
+        self.panbase = self.traceCentre
         
         # with legends it becomes slow
-        self._legend = True
+        self._legend = False
 
         self._data = data
         # tempi en traces komen nu later
         self._tempi = tempi
         self._traces = None
-        self.pieceWidth = 30
+        self.pieceWidth = 60
         self.times = []
         
         # markers
@@ -72,18 +80,24 @@ class FormPieces(QObject):
             if event.inaxes == self.ax1:
                 # ax1 processing
                 #   zetten pieces (button 1)
-                if self.pmode == 1:
-                    b = int(event.xdata*Hz)
-                    # we start a piece 2/5 second before the catch, better for displaying
-                    self.mbegin = n_catches(1, b)[0]-20
-                    self.pmode = 2
-                elif self.pmode == 2:
-                    self.mend = int(event.xdata*Hz)
-                    self.pmode = 3
-                elif self.pmode == 3:
-                    # will not occurr when the piece is accepted
-                    print('set point in traces 3, remove markers')
-                    self.pmode = 1
+                if event.button == 1:
+                    if self.pmode == 1:
+                        b = int(event.xdata*Hz)
+                        # we start a piece 2/5 second before the catch, better for displaying
+                        self.mbegin = n_catches(1, b)[0]-20
+                        self.pmode = 2
+                    elif self.pmode == 2:
+                        self.mend = int(event.xdata*Hz)
+                        self.pmode = 3
+                    elif self.pmode == 3:
+                        # will not occurr when the piece is accepted
+                        print('set point in traces 3, remove markers')
+                        self.pmode = 1
+                elif event.button == 3:
+                    # panning start
+                    self.panon = True
+                    self.pandistance = event.x
+                    self.panbase = self.traceCentre
 
             elif event.inaxes == self.ax2:
                 # ax2 processing
@@ -94,6 +108,9 @@ class FormPieces(QObject):
                 self.tempoline = self.ax2.vlines(event.xdata, 0, 20,
                                                  transform=self.ax2.get_xaxis_transform(), colors='r')
                 self.traceCentre = event.xdata
+                self.xFrom = self.traceCentre - 100
+                self.xTo = self.traceCentre + 100
+                
                 self.update_figure()
             else:
                 #  ook hier verschillende buttons verwerken
@@ -109,10 +126,10 @@ class FormPieces(QObject):
 
     def onclick_u(self, event):
         try:
-            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-                  ('double' if event.dblclick else 'single', event.button,
-                   event.x, event.y, event.xdata, event.ydata))
-            print('Up')
+            if event.inaxes == self.ax1:
+                # button 3, maar gaat altijd goed
+                # panning stop
+                self.panon = False
         except TypeError:
             pass
 
@@ -131,7 +148,17 @@ class FormPieces(QObject):
         except TypeError:
             pass
 
-
+    def onnotify(self, event):
+        try:
+            if event.inaxes == self.ax1:
+                # button 3, maar gaat altijd goed
+                if self.panon:
+                    diff = (self.pandistance - event.x)
+                    self.traceCentre = self.panbase + diff*0.2
+                    self.update_figure()
+        except TypeError:
+            pass
+        
 
     @property
     def figure(self):
@@ -161,8 +188,9 @@ class FormPieces(QObject):
         # ax.set_xlim(a, b)
         
         cid1 = fig.canvas.mpl_connect('button_press_event', self.onclick_d)
-        # cid2 = fig.canvas.mpl_connect('button_release_event', self.onclick_u)
+        cid2 = fig.canvas.mpl_connect('button_release_event', self.onclick_u)
         cid3 = fig.canvas.mpl_connect('scroll_event', self.onscroll)
+        cid4 = fig.canvas.mpl_connect('motion_notify_event', self.onnotify)
 
         # Signal connection
         self.stateChanged.connect(self._figure.canvas.draw_idle)
@@ -255,7 +283,18 @@ class FormPieces(QObject):
             self.ax1.plot([e/Hz], [0], marker='<', color='r')
 
         # self.ax1.set_xlim((self.xFrom, self.xTo))
+        self.ax1.plot([self.traceCentre], [0], marker='D', color='b')        
         self.ax1.set_xlim((self.traceCentre - self.pieceWidth*self.scale, self.traceCentre + self.pieceWidth*self.scale))
+
+        dist = (self.xTo - self.xFrom)
+        xFrom = self.traceCentre - self.scale*dist/2
+        xTo = self.traceCentre + self.scale*dist/2
+
+        self.ax1.set_xlim(xFrom, xTo)
+        # start at correct beginvalue
+        locs = self.ax1.get_xticks()
+        ticks = [item+self._starttime for item in locs]
+        self.ax1.set_xticklabels(ticks)
 
         if has_series and self.legend:
             self.ax1.legend()
@@ -332,7 +371,10 @@ class FormPieces(QObject):
         self._traces = gd.dataObject
         self._tempi = gd.sessionInfo['Tempi']
         self.times = list(map( lambda x: x/Hz, list(range(len(self._traces) - 2))))
-
+        self.xFrom = 0
+        self.xTo = (len(self.times)/Hz)
+        self.traceCentre = self.xTo/2
+        
         gd.mainView.set_data_traces()
         self.update_figures()
 
@@ -343,7 +385,7 @@ class FormPieces(QObject):
         # in BaseDir ?? afdwingen?
         b = os.path.basename(csv_file)
         session = re.sub('.csv', '', b)
-        csv_dir = re.sub(b, '', csv_file)
+        csv_dir = csv_file[0:-(len(session) + 4)]
         session_dir = re.sub('csv_data', 'session_data', csv_dir)
         cache_dir = re.sub('csv_data', 'caches', csv_dir)
         configs_dir = re.sub('csv_data', 'configs', csv_dir)        
@@ -467,7 +509,22 @@ class FormView(QObject):
         self.xFrom2 = 0
         self.xTo2 = 1
 
+        # length of segment shown in the plots
+        self._length = None
+        self._starttime = 0
+        #
+        self.syncMode = False
+        # synchronisation position for video
+        self.videoStart = 0
+        # current position of frame in data
+        self.videoPos = 0
+        self.pieceWidth = 60
+        self.traceCentre = 30
+        
         self.scale = 1
+        self.panon = False
+        self.pandistance = 0
+        self.panbase = self.traceCentre
 
         self.dd = None
         self.ee = None
@@ -478,11 +535,6 @@ class FormView(QObject):
         self._data = data
         self._traces = None
 
-        # length of segment shown in the plots
-        self._length = None
-        self._starttime = 0
-        self.videoStart = 0
-        
         # the part we show
         self._window_tr = None
         self._window_tr2 = None
@@ -492,6 +544,8 @@ class FormView(QObject):
         self._traces2 = None
         self.times = []
         
+        self.vid_state = 0
+
         self.update_figure()
 
     def onclick_d(self, event):
@@ -502,8 +556,17 @@ class FormView(QObject):
                    event.x, event.y, event.xdata, event.ydata))
             """
             if event.inaxes == self.ax1:
-                self.videoStart = event.xdata
-                self.update_figure()
+                if event.button == 1:
+                    if self.syncMode:
+                        self.videoStart = event.xdata
+                    else:
+                        self.videoPos = event.xdata
+                    self.update_figure()
+                elif event.button == 3:
+                    # panning start
+                    self.panon = True
+                    self.pandistance = event.x
+                    self.panbase = self.traceCentre
             else:
                 pass
             
@@ -511,16 +574,36 @@ class FormView(QObject):
             # clicked outside the plot, ignore
             pass
 
+    def onclick_u(self, event):
+        try:
+            if event.inaxes == self.ax1:
+                # button 3, maar gaat altijd goed
+                # panning stop
+                self.panon = False
+        except TypeError:
+            pass
 
     def onscroll(self, event):
         try:
-            self.scale += event.step*0.05
-            if self.scale < 0.05:
-                self.scale = 0.05
-            self.update_figure()
-
+            if event.inaxes == self.ax1:
+                self.scale += event.step*0.05  # nog beter maken.
+                if self.scale < 0.05:
+                    self.scale = 0.05
+                self.update_figure()
         except TypeError:
             pass
+
+    def onnotify(self, event):
+        try:
+            if event.inaxes == self.ax1:
+                # button 3, maar gaat altijd goed
+                if self.panon:
+                    diff = (self.pandistance - event.x)
+                    self.traceCentre = self.panbase + diff*0.2
+                    self.update_figure()
+        except TypeError:
+            pass
+        
 
     @property
     def figure(self):
@@ -538,7 +621,9 @@ class FormView(QObject):
         self.legendChanged.connect(self._figure.canvas.draw_idle)
 
         cid1 = fig.canvas.mpl_connect('button_press_event', self.onclick_d)
+        cid2 = fig.canvas.mpl_connect('button_release_event', self.onclick_u)
         cid3 = fig.canvas.mpl_connect('scroll_event', self.onscroll)
+        cid4 = fig.canvas.mpl_connect('motion_notify_event', self.onnotify)
         
     @pyqtProperty(bool, notify=legendChanged)
     def legend(self):
@@ -602,22 +687,34 @@ class FormView(QObject):
                 values = self._window_tr2[:, i]
                 self.ax1.plot(self.times, values, linewidth=0.7,  label=name, linestyle='--')
 
-        self.tempoline = self.ax1.vlines(self.videoStart, 0, 20,
-                                                 transform=self.ax1.get_xaxis_transform(), colors='r')
+        if gd.video:
+            self.tempoline = self.ax1.vlines(self.videoStart, 0, 20,
+                                             transform=self.ax1.get_xaxis_transform(), colors='r')
 
-        vidToPos(self.videoStart)
+            self.tempoline = self.ax1.vlines(self.videoPos, 0, 20,
+                                             transform=self.ax1.get_xaxis_transform(), colors='b')
 
-        if has_series and self.legend:
-            self.ax1.legend()
+            if self.syncMode:
+                vidToPos(self.videoStart)
+            else:
+                vidToPos(self.videoPos)
 
         #
-        distance = (self.xTo - self.xFrom) * self.scale
+        self.ax1.plot([self.traceCentre], [0], marker='D', color='b')        
+        self.ax1.set_xlim((self.traceCentre - self.pieceWidth*self.scale, self.traceCentre + self.pieceWidth*self.scale))
 
-        self.ax1.set_xlim((self.xFrom, self.xFrom+distance))
+        dist = (self.xTo - self.xFrom)
+        xFrom = self.traceCentre - self.scale*dist/2
+        xTo = self.traceCentre + self.scale*dist/2
+
+        self.ax1.set_xlim(xFrom, xTo)
         # start at correct beginvalue
         locs = self.ax1.get_xticks()
         ticks = [item+self._starttime for item in locs]
         self.ax1.set_xticklabels(ticks)
+
+        if has_series and self.legend:
+            self.ax1.legend()
 
         self.stateChanged.emit()
 
@@ -633,6 +730,7 @@ class FormView(QObject):
             self.times = list(map( lambda x: x/Hz, list(range(xTo-xFrom))))
             self.xFrom = 0
             self.xTo =  int((self._length)/Hz)
+            self.traceCentre = self.xTo/2
 
             if self.secondary:
                 if len(self._window_tr2) > self._length:
@@ -647,15 +745,16 @@ class FormView(QObject):
                     self._window_tr2 = window2
 
         else:
+            self._length = len(self._traces[1: -1, 1])
             self._starttime = 0
             xFrom = 0
-            xTo = len(self._traces[1: -1, 1])
-            self._length = xTo - xFrom
+            xTo = self._length
+
             self._window_tr = self._traces[xFrom: xTo, :]
             self.times = list(map( lambda x: x/Hz, list(range(xTo-xFrom))))
             self.xFrom = int(xFrom/Hz)
             self.xTo = int(xTo/Hz)
-
+            self.traceCentre = self.xTo/2
         return xFrom, xTo
 
     @pyqtSlot(str)
@@ -705,29 +804,52 @@ class FormView(QObject):
         self.update_figure()
 
 
+    # Toggle video
+    #  steeds mpv starten/stoppen
     @pyqtSlot()
-    def videoOpen(self):
-        print('Start video use')
-        sendToMpv('set_property window-scale 0.5')
-        sendToMpv('set_property pause yes')
-        # uit sesionInfo halen
-        v = gd.sessionInfo['Video']
-        file = videoFile(v[0])
-        sendToMpv('loadfile ' + file)
-        # print('loadfile ' + file + ' ' + str(v[1]))
-        time.sleep(0.2)
-        vidToPos(v[1])
-
-    @pyqtSlot()
-    def frame_step(self):
-        # sendToMpv('frame-step')
-        self.videoStart += 0.04
+    def videoOpenClose(self):
+        if self.vid_state == 0:
+            # uit sesionInfo halen
+            v = gd.sessionInfo['Video']
+            if v[0] == 'filename':
+                return
+            file = videoFile(v[0])
+            self.videoStart = v[1]
+            self.videoPos = v[2]
+            startVideo()
+            sendToMpv('set_property window-scale 0.5')
+            sendToMpv('set_property pause yes')
+            sendToMpv('loadfile ' + file)
+            # print('loadfile ' + file + ' ' + str(v[1]))
+            time.sleep(0.2)
+            vidToPos(self.videoStart)
+            self.vid_state = 1
+        else:
+            stopVideo()
+            self.vid_state = 0
+        self.videoStart = 0
+        self.videoPos = 0
         self.update_figure()
 
-    @pyqtSlot()
-    def frame_back_step(self):
-        # sendToMpv('frame-back-step')
-        self.videoStart -= 0.04
+    # het stappen gaat na verloop van tijd mis.
+    #  eerst de antwoorden van mpv goed verwerken!!
+
+    @pyqtSlot(bool)
+    def sync_mode(self, on):
+        if gd.video:
+            if on:
+                self.syncMode = True
+            else:
+                gd.sessionInfo['Video'][1] = self.videoStart
+                gd.sessionInfo['Video'][2] = self.videoPos
+                saveSessionInfo(gd.sessionInfo)
+                self.syncMode = False
+                self.videoPos = self.videoStart
+                self.update_figure()
+            
+    @pyqtSlot(float)
+    def frame_step(self, step):
+        self.videoPos += step
         self.update_figure()
 
     # handling of second session

@@ -219,10 +219,13 @@ class BoatTableModel(QAbstractTableModel):
         self._column = 0
         self.endRemoveRows()
     
-    @pyqtSlot()
-    def set_averaging(self):
-        print("Zet n")
-        
+    @pyqtSlot(bool)
+    def set_averaging(self, checked):
+        if checked:
+            gd.averaging = 1
+        else:
+            gd.averaging = 10
+        self.make_profile()
 
     @pyqtSlot()
     def make_profile(self):
@@ -235,10 +238,11 @@ class BoatTableModel(QAbstractTableModel):
             if gd.profile_available:
                 gd.boatPlots.del_all()
             return False
-        n = 1
-        out = profile(p, n)
+        out = profile(p, gd.averaging)
+        # out bevat per piece: enkele waarden en een paar berekende arrays (power, , )
         gd.profile_available = True
-        # print(out[0])
+
+        # hier gebeurd de visualitatie van het profile
 
         self._data.clear()
 
@@ -249,6 +253,7 @@ class BoatTableModel(QAbstractTableModel):
 
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
         self._data.append(series)
+
 
         # the rest
         self._data.append(
@@ -270,3 +275,21 @@ class BoatTableModel(QAbstractTableModel):
         #     print(i.data())
         return True
         
+
+    @pyqtSlot()
+    def make_report(self):
+        pcs = gd.sessionInfo['Pieces']
+        p = prof_pieces(pcs)
+        if p == []:
+            # print(f'Error profiling, number of pieces {len(pcs)}')
+            gd.profile_available = False
+            self.del_all()
+            if gd.profile_available:
+                gd.boatPlots.del_all()
+            return False
+        out = profile(p, gd.averaging)
+        # out bevat per piece: enkele waarden en een paar berekende arrays (power, , )
+        gd.profile_available = True
+
+        # maak een pdf versie van het profile rapport
+    

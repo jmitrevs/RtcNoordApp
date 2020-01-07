@@ -42,7 +42,8 @@ cal_value2 = None
 
 # profile available?
 profile_available = False
-
+# number of strokes to average over for the profile
+averaging = 1
 #
 boattablemodel = []
 
@@ -53,5 +54,6 @@ boatPlots = None
 norm_arrays = None
 
 # mpv and video socket
+video = False
 submpv = None
 vsocket = None

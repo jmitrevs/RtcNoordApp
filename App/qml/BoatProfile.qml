@@ -22,7 +22,7 @@ Item {
 		rowHeightProvider: function (column) { return 20; }
 		model: boatTableModel
 		height: 200
-		width: 400  // dit moet anders...
+		width: 500  // dit moet anders...
 		delegate: Rectangle {
 		    // implicitWidth: 100
 		    height: 50
@@ -38,17 +38,28 @@ Item {
 	    Button {
 		text: 'Create profile'
 		onPressed: {
-		    prof_1.make_profile();
+		    boatTableModel.make_profile();
 		    boatTableView.forceLayout()
 		}
 	    }
-	    Button {
-		text: 'Averaging'
+
+	    CheckBox {
+		checked: false
+		text: qsTr("Averaged")
 		onPressed: {
-		    prof_1.set_averaging()
+		    boatTableModel.set_averaging(checked)
 		    boatTableView.forceLayout()
 		}
 	    }
+
+	    Button {
+		text: 'Create report'
+		onPressed: {
+		    boatTableModel.make_report();
+		}
+	    }
+
+	    
 	}
 	Text {
 	    text: 'beneden'
@@ -65,6 +76,5 @@ Item {
             Layout.minimumWidth: 1000
             Layout.minimumHeight: 400
         }
-
     }
 }

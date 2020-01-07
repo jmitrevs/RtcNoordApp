@@ -115,9 +115,9 @@ Item {
 			    text: name
 			}
 			Button {
-			    width: 50
-			    height: 40
-			    icon.name: "edit-cut"
+			    width: 35
+			    height: 30
+			    icon.name: "window-close"
  			    icon.source: "images/cut.png"
 			    onClicked: { draw_mpl.remove_piece(index);
 				       }

@@ -96,13 +96,11 @@ def profile(pindex, n):
     #  made to match structure of dataObject, efficient enough?
 
     # average the data
-    #   evt iets eerder beginnen. We moeten de catches volgens accell ook aan het begin hebben, incl. filteren
     for i, st in enumerate(pos):
-        r = st[0] + length
         for j in range(n):
-            av_arrays[i, :, :] += gd.dataObject[st[0]:r, :]
+            r = st[j] + length
+            av_arrays[i, :, :] += gd.dataObject[st[j]:r, :]
     av_arrays = av_arrays/n
-    # moet lengte van de haal wel onhouden
 
     # scull: gate angle and force:  average and add
     # Use port
@@ -154,7 +152,34 @@ def pieceCalculations(nm, sp, a):
     out = {}
     out['PieceName'] = nm
 
-    # Boatreport
+    """ What we need:
+    Boatreport:
+      - table boat parameters
+      - normalized graphs
+          - speed and accelleration
+          - pitch, roll, yaw
+          - accell/powerloss agains tempi of different pieces ?
+
+    Crewreport:
+      - graphs to compare rowers
+        - gate angles  (+accel as support)
+        - seatposition (+accel as support)
+        - gate force   (+accel as support)
+        - gate force agains gate angle
+        - stretcher force
+        - stretcher force agains gate angle
+        - propulsive force?
+
+    Rower report, one for each rower
+      - table met targets erbij
+      - graphs
+        - gate angle
+        - gate force X/Y
+        - power, handlevel, handlevdsseat
+        - stretcher forces
+
+    """
+
     # number of strokes and average rating: in sessionInfo
 
     # 500 meter split in seconds
@@ -168,17 +193,22 @@ def pieceCalculations(nm, sp, a):
     # staat in goede volgorde
     l = prof_pcs
     scnt, r = gd.sessionInfo['PieceCntRating'][l.index(nm)]
-    out['SpeedPerStroke'] = 60 * speed / r
-    # print(f'Distance per stroke {out["SpeedPerStroke"]} in {nm}')    
+    out['DistancePerStroke'] = 60 * speed / r
 
     out['Starting points'] = sp
 
-    # accel data
+    # TODO
+    # maximum speed at %cycle
+    # positive acceleration at %cycle
+    # speed fluctuation
+    # speed fluctuation power loss
+    # pitch yaw roll average
 
-    # meer later  ...
 
-    # Crewreport
+    # Crewreport, all data already available. Only normalising needed
 
+
+    # Rowerreport
     rwcnt = gd.sessionInfo['RowerCnt']
     boattype = gd.sessionInfo['BoatType']
     
@@ -197,7 +227,7 @@ def pieceCalculations(nm, sp, a):
         # use only power for now
         profile_data = np.zeros((3*nmbr_oars, length))
 
-        # HandleVel, HandleVDSSeat
+        # TODO: HandleVel, HandleVDSSeat
 
         # power
         for i, r in enumerate(ind_ga):
@@ -211,7 +241,7 @@ def pieceCalculations(nm, sp, a):
             gateAngleVel = np.gradient(math.pi*gate_a/180, 1/Hz)
             profile_data[i+0]        = moment * gateAngleVel
 
-            # PowerLegs, PowerTruncArms
+            # TODO: PowerLegs, PowerTruncArms
     else:
         inboard = gd.globals['Parameters']['inboardScull']
         outboard = gd.globals['Parameters']['outboardScull']
@@ -235,7 +265,7 @@ def pieceCalculations(nm, sp, a):
         # use only power for now
         profile_data = np.zeros((3*nmbr_oars, length))
 
-        # HandleVel, HandleVDSSeat
+        # TODO: HandleVel, HandleVDSSeat
 
         # power (both oars merged)
         # NOG duidelijk fout!
@@ -250,19 +280,16 @@ def pieceCalculations(nm, sp, a):
             gateAngleVel = np.gradient(math.pi*gate_a/180, 1/Hz)
             profile_data[i+0]        = moment * gateAngleVel
 
-            # PowerLegs, PowerTruncArms
+            # TODO: PowerLegs, PowerTruncArms
 
-    # centreer yaw, pitch en angle
+    # TODO
 
-    # Rower reports
+    # centreer yaw, pitch en angle ( averages in boat table)
     # slip
-    # catch according to accell data. Is this always later ten our current catch?
-    #    evt. iets eerder dan catch in av_arrays beginnen. ook ivm evt voorslaan
+
 
     # normalize data
     #   from  catch1 to catch2
-    # resultaat in gd.norm_arrays achterlaten
-
     gd.norm_arrays = np.empty((100, a.shape[1]))
     for i in range(a.shape[1]):
         l = sp[1]-sp[0]
@@ -274,7 +301,9 @@ def pieceCalculations(nm, sp, a):
         # print(f'xnew {xnew}')
         # print(a[0:l, i])
         gd.norm_arrays[:, i] = g(xnew)
-                
+
+    # normalize profile_data
+
     return out, profile_data
 
 

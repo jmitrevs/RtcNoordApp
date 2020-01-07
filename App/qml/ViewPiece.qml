@@ -39,7 +39,8 @@ Item {
 
 		Button {
 		    text: "Video"
-		    onClicked: { piece_mpl.videoOpen()
+		    onClicked: { piece_mpl.videoOpenClose()
+				 // evt kleur aanpassen: open of close
 			       }
 		}
 
@@ -151,33 +152,70 @@ Item {
 	    }
 
 
+		Text {
+		    width: 20
+		    Layout.minimumHeight: 50
+		    text: 'Video control'
+		}
 
 		Row {
+		    spacing: 10
 		    Button {
-			icon.name: "edit-cut"
-			icon.source: "images/cut.png"
-			onClicked: { piece_mpl.frame_step()}
-			       }
+			width: 40
+			icon.name: "niet"
+			icon.source: "images/media-seek-backward"
+			onClicked: { piece_mpl.frame_step(-0.2)}
 		    }
 
+
 		    Button {
-			icon.name: "edit-cut"
-			icon.source: "images/cut.png"
-			onClicked: { piece_mpl.frame_back_step()
+			width: 40
+			icon.name: "niet"
+			icon.source: "images/media-playback-start-rtl"
+			onClicked: { piece_mpl.frame_step(-0.02)
 				   }
 		    }
-		    Text {
-			width: 20
-			Layout.minimumHeight: 50
-			text: 'Video control'
+
+		    Button {
+			id: syncbutton
+			width: 40
+			property color plotColor : "lightblue"  // '#add8e6'
+			icon.name: "niet"
+			icon.source: "images/media-playback-stop"
+			onClicked: {
+			    if (plotColor == "#add8e6") {
+				piece_mpl.sync_mode(true)
+				plotColor = 'red'
+			    }
+			    else {
+				piece_mpl.sync_mode(false)
+				plotColor = 'lightblue'
+			    }   
+			}
+			background: Rectangle {
+			    color: syncbutton.plotColor
+			}
 		    }
 
+		    Button {
+			width: 40
+			icon.name: "niet"
+			icon.source: "images/media-playback-start"
+			onClicked: { piece_mpl.frame_step(0.02)
+				   }
+		    }
 
-	    }
-
-
+		    Button {
+			width: 40
+			icon.name: "niet"
+			icon.source: "images/media-seek-forward"
+			onClicked: { piece_mpl.frame_step(0.2)
+				   }
+		    }
+		}
 
 	    }
 	}
+    }
 }
 
