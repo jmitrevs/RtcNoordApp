@@ -227,33 +227,15 @@ class BoatTableModel(QAbstractTableModel):
             gd.averaging = 10
         self.make_profile()
 
-    @pyqtSlot()
-    def make_profile(self):
-        pcs = gd.sessionInfo['Pieces']
-        p = prof_pieces(pcs)
-        if p == []:
-            # print(f'Error profiling, number of pieces {len(pcs)}')
-            gd.profile_available = False
-            self.del_all()
-            if gd.profile_available:
-                gd.boatPlots.del_all()
-            return False
-        out = profile(p, gd.averaging)
-        # out bevat per piece: enkele waarden en een paar berekende arrays (power, , )
-        gd.profile_available = True
-
-        # hier gebeurd de visualitatie van het profile
-
+    def fillBoatTable(self, out):
         self._data.clear()
 
         # First header line
         n = 1
         line = prof_pcs
         series = DataSerie(n, [''] + line)
-
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
         self._data.append(series)
-
 
         # the rest
         self._data.append(
@@ -269,15 +251,12 @@ class BoatTableModel(QAbstractTableModel):
         self._column = len(self._data[0].data())
         self._row = len(self._data)
 
-        gd.boatPlots.update_figure()
-
         # for i in self._data:
         #     print(i.data())
-        return True
-        
 
-    @pyqtSlot()
-    def make_report(self):
+    # we create the complete profile here
+
+    def prepareData(self):
         pcs = gd.sessionInfo['Pieces']
         p = prof_pieces(pcs)
         if p == []:
@@ -288,8 +267,24 @@ class BoatTableModel(QAbstractTableModel):
                 gd.boatPlots.del_all()
             return False
         out = profile(p, gd.averaging)
-        # out bevat per piece: enkele waarden en een paar berekende arrays (power, , )
+
+        self.fillBoatTable(out)
+        # en gd.rowertablemodel.fillRowerTable(out)
+
         gd.profile_available = True
+
+
+    @pyqtSlot()
+    def make_profile(self):
+
+        self.prepareData()
+        gd.boatPlots.update_figure()
+        
+
+    @pyqtSlot()
+    def make_report(self):
+
+        self.prepareData()
 
         # maak een pdf versie van het profile rapport
     

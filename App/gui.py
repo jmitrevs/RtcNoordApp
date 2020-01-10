@@ -336,7 +336,8 @@ class FormPieces(QObject):
 
     @pyqtProperty(str, notify=stateChanged)
     def csvDir(self):
-        return '/home/sietse/' + gd.config['BaseDir'] + '/csv_data'
+        return os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/csv_data'
+
 
     @pyqtProperty(int, notify=stateChanged)
     def nmbrRowers(self):
@@ -347,7 +348,7 @@ class FormPieces(QObject):
 
     @pyqtProperty(str, notify=stateChanged)
     def sessionDir(self):
-        return '/home/sietse/' + gd.config['BaseDir'] + '/session_data'
+        return os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/session_data'
 
     @pyqtProperty(str, notify=stateChanged)
     def sessionName(self):
@@ -516,6 +517,7 @@ class FormView(QObject):
         self.syncMode = False
         # synchronisation position for video
         self.videoStart = 0
+        self.videoNewStart = 0
         # current position of frame in data
         self.videoPos = 0
         self.pieceWidth = 60
@@ -557,11 +559,15 @@ class FormView(QObject):
             """
             if event.inaxes == self.ax1:
                 if event.button == 1:
-                    if self.syncMode:
-                        self.videoStart = event.xdata
-                    else:
-                        self.videoPos = event.xdata
-                    self.update_figure()
+                    if gd.video:
+                        if self.syncMode:
+                            self.videoNewStart = event.xdata
+                            print(f'vs {self.videoNewStart}')
+                        else:
+                            gd.player.seek(event.xdata - self.videoPos)
+                            self.videoPos = event.xdata
+                            print(f'vp {self.videoPos}')
+                        self.update_figure()
                 elif event.button == 3:
                     # panning start
                     self.panon = True
@@ -599,7 +605,7 @@ class FormView(QObject):
                 # button 3, maar gaat altijd goed
                 if self.panon:
                     diff = (self.pandistance - event.x)
-                    self.traceCentre = self.panbase + diff*0.2
+                    self.traceCentre = self.panbase + diff*0.1
                     self.update_figure()
         except TypeError:
             pass
@@ -675,6 +681,10 @@ class FormView(QObject):
                 values = self._window_tr[:, i]
                 self.ax1.plot(self.times, values, linewidth=0.6,  label=name)
 
+        if gd.video:
+            self.ax1.vlines(self.videoStart, 0, 20, transform=self.ax1.get_xaxis_transform(), colors='r')
+            self.ax1.vlines(self.videoPos, 0, 20, transform=self.ax1.get_xaxis_transform(), colors='b')
+
         # secondary plots
         for row in range(self._data2.rowCount()):
             model_index = self._data2.index(row, 0)
@@ -687,26 +697,13 @@ class FormView(QObject):
                 values = self._window_tr2[:, i]
                 self.ax1.plot(self.times, values, linewidth=0.7,  label=name, linestyle='--')
 
-        if gd.video:
-            self.tempoline = self.ax1.vlines(self.videoStart, 0, 20,
-                                             transform=self.ax1.get_xaxis_transform(), colors='r')
-
-            self.tempoline = self.ax1.vlines(self.videoPos, 0, 20,
-                                             transform=self.ax1.get_xaxis_transform(), colors='b')
-
-            if self.syncMode:
-                vidToPos(self.videoStart)
-            else:
-                vidToPos(self.videoPos)
-
-        #
-        self.ax1.plot([self.traceCentre], [0], marker='D', color='b')        
+        self.ax1.plot([self.traceCentre], [0], marker='D', color='b')                
         self.ax1.set_xlim((self.traceCentre - self.pieceWidth*self.scale, self.traceCentre + self.pieceWidth*self.scale))
 
         dist = (self.xTo - self.xFrom)
         xFrom = self.traceCentre - self.scale*dist/2
         xTo = self.traceCentre + self.scale*dist/2
-
+        
         self.ax1.set_xlim(xFrom, xTo)
         # start at correct beginvalue
         locs = self.ax1.get_xticks()
@@ -808,48 +805,88 @@ class FormView(QObject):
     #  steeds mpv starten/stoppen
     @pyqtSlot()
     def videoOpenClose(self):
+        if not os.path.isfile('/usr/bin/mpv'):
+            return
         if self.vid_state == 0:
             # uit sesionInfo halen
             v = gd.sessionInfo['Video']
-            if v[0] == 'filename':
+            if v[0] == 'None':
                 return
             file = videoFile(v[0])
-            self.videoStart = v[1]
-            self.videoPos = v[2]
+            self.videoStart = float(v[1])
+            self.videoPos = float(v[2])
+            print(f'started with {v[1]}  {v[2]}')
             startVideo()
-            sendToMpv('set_property window-scale 0.5')
-            sendToMpv('set_property pause yes')
-            sendToMpv('loadfile ' + file)
-            # print('loadfile ' + file + ' ' + str(v[1]))
-            time.sleep(0.2)
-            vidToPos(self.videoStart)
+            gd.player.window_scale = 0.5
+            gd.player.pause= True
+            gd.hr_seek = 'yes'
+            gd.player.loadfile(file)
+            time.sleep(0.6)
+
+            gd.player.seek(self.videoStart)
+            self.videoStart = self.videoPos  # now videostart marker ok
             self.vid_state = 1
         else:
             stopVideo()
             self.vid_state = 0
-        self.videoStart = 0
-        self.videoPos = 0
+            self.videoStart = 0
+            self.videoPos = 0
         self.update_figure()
 
-    # het stappen gaat na verloop van tijd mis.
-    #  eerst de antwoorden van mpv goed verwerken!!
+    """
+    sync procedure, uitgaand van video op beginpositie, dus meteen na starten video
+       dan staat de video op waarde uit sessionInfo['Video'][1]
+       zet video op beoogd syncpositie
+       tel verplaatsing bij oude waarde op, dat is nu syncpositie in video  (a)
+
+       klik middelste knopje, wordt rood
+       klik met muis precies op goede plaats in de data
+       nu weten we de plaats in de data (b)
+
+       klik middelste knopje, wordt weer gewoon
+       zet a, b in sessionInfo['Video']
+
+    """
 
     @pyqtSlot(bool)
     def sync_mode(self, on):
         if gd.video:
             if on:
+                # fix startpunt in de video (a)
+                self.nieuw_vid = float(gd.sessionInfo['Video'][1]) + self.videoPos - self.videoStart
+                print(f'nv {self.nieuw_vid}')
+                
                 self.syncMode = True
+                # linker muisknop verplaatst nu rode lijn
             else:
-                gd.sessionInfo['Video'][1] = self.videoStart
-                gd.sessionInfo['Video'][2] = self.videoPos
+                # fix data tov video startpunt (b)
+                file = gd.sessionInfo['Video'][0]
+                gd.sessionInfo['Video'] = [ file,  str(self.nieuw_vid), str(self.videoNewStart) ]
+                # gd.sessionInfo['Video'][2] = self.videoNewStart
+                print(f'saved as {gd.sessionInfo["Video"]}')
                 saveSessionInfo(gd.sessionInfo)
+                # zet blauwe lijn op rode
+                self.videoPos = self.videoNewStart
                 self.syncMode = False
-                self.videoPos = self.videoStart
                 self.update_figure()
             
+    @pyqtSlot()
+    def frame_step(self):
+        gd.player.frame_step()
+        self.videoPos += 0.02
+        self.update_figure()
+
+    @pyqtSlot()
+    def frame_back_step(self):
+        gd.player.frame_back_step()
+        self.videoPos -= 0.02
+        self.update_figure()
+
     @pyqtSlot(float)
-    def frame_step(self, step):
-        self.videoPos += step
+    def frame_seek(self, s):
+        gd.player.seek(s)
+        self.videoPos += s
+        print(f'frame pos {self.videoPos}')
         self.update_figure()
 
     # handling of second session

@@ -119,6 +119,7 @@ def profile(pindex, n):
         outcome.append(pieceCalculations(nm, sp, av_arrays[i, :, :]))
         
     saveSessionInfo(gd.sessionInfo)
+
     return outcome
 
 
@@ -134,7 +135,7 @@ def pieceCalculations(nm, sp, a):
     startpoints of the strokes
 
     a: numpy.array (sensors, length)
-    Array containing the sensor data for the stroke
+    Array containing the averaged sensor data for the stroke
 
     Returns
     -------
@@ -205,7 +206,7 @@ def pieceCalculations(nm, sp, a):
     # pitch yaw roll average
 
 
-    # Crewreport, all data already available. Only normalising needed
+    # Crewreport, all data already available.
 
 
     # Rowerreport
@@ -292,14 +293,15 @@ def pieceCalculations(nm, sp, a):
     #   from  catch1 to catch2
     gd.norm_arrays = np.empty((100, a.shape[1]))
     for i in range(a.shape[1]):
-        l = sp[1]-sp[0]
+        l = sp[1]-sp[0]+2  # iets langer vanwege complete cyclus
         x = np.arange(l)
-        # print(f'x {x}')
-        g = interp1d(x, a[0:l, i], kind='cubic')
+        # waarom fout als l = 105? fill_value helpt
+        g = interp1d(x, a[0:l, i], kind='cubic', fill_value="extrapolate")
         xnew = np.arange(100)*((l-1)/(100-1))
         # print(len(x), len(xnew), len(a[0:l, i]))
         # print(f'xnew {xnew}')
         # print(a[0:l, i])
+
         gd.norm_arrays[:, i] = g(xnew)
 
     # normalize profile_data
@@ -309,4 +311,3 @@ def pieceCalculations(nm, sp, a):
 
 def visualize(data):
     print('Profile data pictures or pdf')
-

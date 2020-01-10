@@ -9,6 +9,7 @@ Matplotlib is used for the graphs.
 """
 
 import sys, os, math, time, csv, yaml, shlex
+import locale
 
 import numpy as np
 
@@ -65,11 +66,23 @@ def interactive(session=None):
         makecache(file)
 
     # print(gd.sessionInfo)
-    
+    pcs = gd.sessionInfo['Pieces']
+    p = prof_pieces(pcs)
+    if p == []:
+        # print(f'Error profiling, number of pieces {len(pcs)}')
+        gd.profile_available = False
+        self.del_all()
+        if gd.profile_available:
+            gd.boatPlots.del_all()
+        return False
+
+    gd.out = profile(p, gd.averaging)
+
 
 def cleanup_mpv():
     gd.submpv.kill()
     del(gd.submpv)
+
     
 def main():
     """The main entry point when used as regular app
@@ -92,6 +105,8 @@ def main():
     # sys_argv += ['--style', 'material']
     app = QGuiApplication(sys.argv)
     
+    locale.setlocale(locale.LC_NUMERIC, "C");
+
     # needed by filedialog
     app.setOrganizationName("RTC noord")
     app.setOrganizationDomain("RTC")

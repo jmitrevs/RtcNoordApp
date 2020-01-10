@@ -46,8 +46,9 @@ Tempi :
 # Marked pieces: name, start, length, average rating (generated)
 Pieces: []
 
-# file met video en indexen van welk beeldje waar in de sessie thuishoort
+# file met video
+# index in data en index in video
 Video:
-  - filename
-  - indexVideo
-  - indexData
+  - None
+  - 0
+  - 0

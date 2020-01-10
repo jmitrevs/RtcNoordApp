@@ -52,8 +52,8 @@ boatPlots = None
 
 # the averaged data and normalized data
 norm_arrays = None
+out = None
 
-# mpv and video socket
+# mpv player
 video = False
-submpv = None
-vsocket = None
+player = None

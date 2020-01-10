@@ -164,7 +164,7 @@ Item {
 			width: 40
 			icon.name: "niet"
 			icon.source: "images/media-seek-backward"
-			onClicked: { piece_mpl.frame_step(-0.2)}
+			onClicked: { piece_mpl.frame_seek(-0.2)}
 		    }
 
 
@@ -172,7 +172,7 @@ Item {
 			width: 40
 			icon.name: "niet"
 			icon.source: "images/media-playback-start-rtl"
-			onClicked: { piece_mpl.frame_step(-0.02)
+			onClicked: { piece_mpl.frame_back_step()
 				   }
 		    }
 
@@ -201,7 +201,7 @@ Item {
 			width: 40
 			icon.name: "niet"
 			icon.source: "images/media-playback-start"
-			onClicked: { piece_mpl.frame_step(0.02)
+			onClicked: { piece_mpl.frame_step()
 				   }
 		    }
 
@@ -209,7 +209,7 @@ Item {
 			width: 40
 			icon.name: "niet"
 			icon.source: "images/media-seek-forward"
-			onClicked: { piece_mpl.frame_step(0.2)
+			onClicked: { piece_mpl.frame_seek(0.2)
 				   }
 		    }
 		}

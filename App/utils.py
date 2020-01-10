@@ -4,6 +4,7 @@ import sys, os, subprocess, socket, mpv, math, time, csv, yaml, copy, shlex
 
 import numpy as np
 from scipy import signal
+import mpv
 
 import globalData as gd
 
@@ -329,42 +330,13 @@ def prof_pieces(pieces):
 
 # Video processing
 #    test mpv availability!
-#    bekijk de response van mpv
-#         netcat -U  /tmp/rtcsocket
 def startVideo():
-    command = '/usr/bin/mpv --input-ipc-server=/tmp/rtcsocket --idle --log-file=/tmp/mpvlog'
-    args = shlex.split(command)
-    gd.submpv = subprocess.Popen(args, stdout=subprocess.DEVNULL)
-
-    # need some delay, especially with slow computers
-    time.sleep(0.4)
-    gd.vsocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    try:
-        gd.vsocket.connect('/tmp/rtcsocket')
-    except ConnectionRefusedError:
-        print('connected to socket refused. why?\nTry again.')
-        gd.submpv.kill()
-        del(gd.submpv)
+    gd.player = mpv.MPV()
+    gd.player.pause = True
+    gd.player.window_scale = 0.5
     gd.video = True
 
 def stopVideo():
-    sendToMpv('quit')
-    time.sleep(0.1)
-    gd.submpv.kill()
-    del(gd.vsocket)
+    gd.player.terminate()
+    del(gd.player)
     gd.video = False
-
-
-def sendToMpv(command):
-    c = shlex.split(command)
-    # splits met komma's
-    lst = ''
-    for i in c:
-        lst += '"' + i + '"' + ', '
-    lst = bytes(lst[0:-2], 'utf-8')
-    cmd = b'{ "command": [ ' + lst + b' ] }\n'
-    gd.vsocket.send(cmd)
-    print(cmd)
-
-def vidToPos(i):
-    sendToMpv('seek ' + str(i) + ' absolute')
