@@ -2,6 +2,7 @@
 
 import os, re, yaml, time
 from shutil import copyfile, move
+from pathlib import Path
 import numpy as np
 
 from PyQt5.QtCore import QVariant, QObject, pyqtSignal, pyqtSlot, pyqtProperty, QMetaObject, Qt, QTimer, QByteArray, QAbstractListModel, QModelIndex
@@ -383,30 +384,26 @@ class FormPieces(QObject):
     def createSessionCsv(self, f):
         """Used from the menu when (re)creating a new session."""
         csv_file = re.sub('\Afile://', '', f)
-        # in BaseDir ?? afdwingen?
         b = os.path.basename(csv_file)
         session = re.sub('.csv', '', b)
-        csv_dir = csv_file[0:-(len(session) + 4)]
-        session_dir = re.sub('csv_data', 'session_data', csv_dir)
-        cache_dir = re.sub('csv_data', 'caches', csv_dir)
-        configs_dir = re.sub('csv_data', 'configs', csv_dir)        
-        session_file = session_dir + session + '.yaml'
-        cache_file = cache_dir + session + '.npy'
 
+        session_file = sessionsDir() / (session + '.yaml')
+        cache_file = cachesDir() / (session + '.npy')
+        
         # move session in old subdir and remove cache file if they exist
         try:
-            fd = open(session_file, 'r')
+            fd = Path.open(session_file, 'r')
             fd.close()
             try:
-                os.mkdir(session_dir + "/old")
+                Path.mkdir(sessionsDir() / 'old')
             except FileExistsError:
                 pass
-            move(session_file, session_dir + 'old')
+            move(session_file, sessionsDir() / 'old' / (session + '.yaml'))
         except IOError:
             # assume no session_file
             pass
         try:
-            fd = open(cache_file, 'r')
+            fd = Path.open(cache_file, 'r')
             fd.close()
             os.remove(cache_file)
         except IOError:
@@ -418,54 +415,45 @@ class FormPieces(QObject):
         saveConfig(gd.config)
 
         # create sessionfile
-        copyfile(configs_dir + 'session_template.yaml', session_file)
+        copyfile(configsDir() / 'session_template.yaml', session_file)
         gd.sessionInfo = selectSession()
         gd.cal_value = gd.sessionInfo['Calibration']
 
         # read numpy data
         makecache(cache_file)
-
+        
         calibrate()
         self.update_the_models(session)
-
+        
     @pyqtSlot()
     def selectCurrent(self):
         """Used when starting the program."""
         session = gd.config['Session']
-        session_file = sessionFile(session)
-        basename = '/' + session + '.yaml'
-        session_dir = re.sub(basename, '', session_file)
+        session_file = sessionsDir() / (session + '.yaml')
 
         if session != 'None':
-            self.selectIt(session_dir, session)
+            self.selectIt(session)
 
     @pyqtSlot(str)
     def selectSessionFile(self, f):
-        """ used from the menu to select an existing session."""
+        """Used from the menu to select an existing session."""
         session_file = re.sub('\Afile://', '', f)
         s = os.path.basename(session_file)
         session = re.sub('.yaml', '', s)
 
-        # beetje dubbelop
-        session_file = sessionFile(session)
-        basename = '/' + session + '.yaml'
-        session_dir = re.sub(basename, '', session_file)
-
         gd.config['Session'] = session
         saveConfig(gd.config)
         
-        self.selectIt(session_dir, session)
+        self.selectIt(session)
 
-    def selectIt(self, session_dir, session):
-        session_file = session_dir + '/' + session + '.yaml'
-        cache_dir = re.sub('session_data', 'caches/', session_dir)
-        cache_file = cache_dir + session + '.npy'
+    def selectIt(self, session):
+        session_file = sessionsDir() / (session + '.yaml')
+        cache_file = cachesDir() / (session + '.npy')
 
         self.cleanup_global_data()
-
         # update sessionInfo
         try:
-            fd = open(session_file, 'r')
+            fd = Path.open(session_file, 'r')
             inhoud = fd.read()
         except IOError:
             print(f'selectIt: cannot read Sessions file, should not happen  {session_file}')
@@ -477,7 +465,7 @@ class FormPieces(QObject):
 
         # update dataObject (should be there)
         try:
-            fd = open(cache_file, 'r')
+            fd = Path.open(cache_file, 'r')
             fd.close()
             gd.dataObject = np.load(cache_file)
         except IOError:
@@ -820,8 +808,8 @@ class FormView(QObject):
             gd.player.window_scale = 0.5
             gd.player.pause= True
             gd.hr_seek = 'yes'
-            gd.player.loadfile(file)
-            time.sleep(0.6)
+            gd.player.loadfile(file.as_uri())
+            time.sleep(0.1)  # waarom nodig, en hoeveel (bij langzame computers)
 
             gd.player.seek(self.videoStart)
             self.videoStart = self.videoPos  # now videostart marker ok
@@ -903,21 +891,21 @@ class FormView(QObject):
         session_file = re.sub('\Afile://', '', f)
         s = os.path.basename(session_file)
         session = re.sub('.yaml', '', s)
+        print(f'second {session_file} {session}')
 
         # beetje dubbelop
-        session_file = sessionFile(session)
+        session_file = sessionsDir() / (session + 'yaml')
         basename = '/' + session + '.yaml'
         session_dir = re.sub(basename, '', session_file)
 
         gd.config['Session2'] = session
         saveConfig(gd.config)
         
-        self.selectSecond(session_dir, session)
+        self.selectSecond(session)
 
-    def selectSecond(self, session_dir, session):
-        session_file = session_dir + '/' + session + '.yaml'
-        cache_dir = re.sub('session_data', 'caches/', session_dir)
-        cache_file = cache_dir + session + '.npy'
+    def selectSecond(self, session):
+        session_file = sessionsDir() / (session + '.yaml')
+        cache_file = cachesDir() / (session + '.npy')
 
         # wat nodig?
         # self.cleanup_global_data()
@@ -926,19 +914,19 @@ class FormView(QObject):
 
         # update sessionInfo2
         try:
-            fd = open(session_file, 'r')
+            fd = Path.open(session_file, 'r')
             inhoud = fd.read()
         except IOError:
             print(f'selectIt: cannot read secondary Sessions file, should not happen  {session_file}')
             gd.config['Session2'] = 'None'
             saveConfig(gd.config)
             exit()
-        gd.sessionInfo2 = yaml.load(inhoud)
+        gd.sessionInfo = yaml.load(inhoud, Loader=yaml.SafeLoader)
         gd.cal_value2 = gd.sessionInfo2['Calibration']
 
         # update dataObject (should be there)
         try:
-            fd = open(cache_file, 'r')
+            fd = Path.open(cache_file, 'r')
             fd.close()
             gd.dataObject2 = np.load(cache_file)
         except IOError:
@@ -1010,7 +998,7 @@ class BoatForm(QObject):
         self.twee = None
         self.drie = None
         
-        self._legend = False
+        self._legend = True
 
         self._data = data
 
@@ -1075,9 +1063,12 @@ class BoatForm(QObject):
         # bootsnelheid, accel, pitch
         if gd.profile_available:
             sensors = gd.sessionInfo['Header']
-            self.een = self.ax1.plot(gd.norm_arrays[:, sensors.index('Speed')], linewidth=0.6)
-            self.twee = self.ax2.plot(gd.norm_arrays[:, sensors.index('Accel')], linewidth=0.6)
-            self.drie = self.ax3.plot(gd.norm_arrays[:, sensors.index('Pitch Angle')], linewidth=0.6)
+            # alle pieces
+            self.een = self.ax1.plot(gd.norm_arrays[0, :, sensors.index('Speed')], linewidth=0.6, label='een')
+            self.en = self.ax1.plot(gd.norm_arrays[1, :, sensors.index('Speed')], linewidth=0.6, label='twee')
+            self.n = self.ax1.plot(gd.norm_arrays[2, :, sensors.index('Speed')], linewidth=0.6, label='drie')
+            self.twee = self.ax2.plot(gd.norm_arrays[1, :, sensors.index('Accel')], linewidth=0.6)
+            self.drie = self.ax3.plot(gd.norm_arrays[1, :, sensors.index('Pitch Angle')], linewidth=0.6)
 
         if self.legend:
             self.ax1.legend()

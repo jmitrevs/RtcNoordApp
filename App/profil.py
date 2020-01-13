@@ -16,7 +16,7 @@ from scipy.interpolate import interp1d
 import globalData as gd
 from utils import *
 
-def profile(pindex, n):
+def profile(pindex):
     """Create a profile with averaging over n strokes
 
     Globals
@@ -28,8 +28,6 @@ def profile(pindex, n):
     Parameters
     ----------
     pindex: list of indices of the profile pieces in correct order
-    n: int
-       The number of strokes to average over
     """
     # offset: later beginnen met het te gebruiken stuk
 
@@ -62,38 +60,31 @@ def profile(pindex, n):
                     tlist.append(t)
                     scnt += 1
                     rating += r
-                    mode = n+2     # a little more
+                    mode = 1
             elif mode > 0:
-
-
-                mode -= 1
-                tlist.append(t)
-                scnt += 1
-                rating += r
-                if mode == 0:
-                    pn = t-strt
-                    mode = -1
-            else:
                 if t < e:
+                    tlist.append(t)
                     scnt += 1
                     rating += r
                 else:
+                    cl = (t-strt)/scnt  # cycle length in time steps
                     break
-
-        if mode == -1:
-            if pn > mx:
-                mx = pn
+        if cl > mx:
+            mx = cl
         pos.append(tlist)
         # scnt and rating for entire piece
         rating = rating/scnt
         nlist.append((scnt, rating))
     gd.sessionInfo['PieceCntRating'] = nlist
+    if gd.averaging:
+        n = min([ cnt for cnt, r in nlist])
+    else:
+        n = 1
 
     sensors = gd.sessionInfo['Header']
     # allocate array for the average arrays, we need at least one cycle
-    length = int(mx/n)
+    length = int(1.5*mx)
     av_arrays = np.zeros((len(pd), length, len(sensors)))
-    #  made to match structure of dataObject, efficient enough?
 
     # average the data
     for i, st in enumerate(pos):
@@ -114,12 +105,14 @@ def profile(pindex, n):
 
     # nu de echte berekeningen
     outcome = []
+    # allocate norm_arrays
+    gd.norm_arrays = np.empty((len(prof_pcs), 100, len(sensors)))
+
     for i, sp in enumerate(pos):
         nm = prof_pcs[i]
         outcome.append(pieceCalculations(nm, sp, av_arrays[i, :, :]))
         
     saveSessionInfo(gd.sessionInfo)
-
     return outcome
 
 
@@ -160,27 +153,7 @@ def pieceCalculations(nm, sp, a):
           - speed and accelleration
           - pitch, roll, yaw
           - accell/powerloss agains tempi of different pieces ?
-
-    Crewreport:
-      - graphs to compare rowers
-        - gate angles  (+accel as support)
-        - seatposition (+accel as support)
-        - gate force   (+accel as support)
-        - gate force agains gate angle
-        - stretcher force
-        - stretcher force agains gate angle
-        - propulsive force?
-
-    Rower report, one for each rower
-      - table met targets erbij
-      - graphs
-        - gate angle
-        - gate force X/Y
-        - power, handlevel, handlevdsseat
-        - stretcher forces
-
     """
-
     # number of strokes and average rating: in sessionInfo
 
     # 500 meter split in seconds
@@ -192,24 +165,47 @@ def pieceCalculations(nm, sp, a):
 
     # distance per stroke: 60*speed/rating
     # staat in goede volgorde
-    l = prof_pcs
-    scnt, r = gd.sessionInfo['PieceCntRating'][l.index(nm)]
+    # index also used in  gd.norm_arrays
+    idx = prof_pcs.index(nm)
+    scnt, r = gd.sessionInfo['PieceCntRating'][idx]
     out['DistancePerStroke'] = 60 * speed / r
 
     out['Starting points'] = sp
 
-    # TODO
     # maximum speed at %cycle
+    #  filter speed, zoek max, hoever in de haal
+
+    # TODO
+
     # positive acceleration at %cycle
     # speed fluctuation
     # speed fluctuation power loss
     # pitch yaw roll average
 
+    """
+    Crewreport:
+      - graphs to compare rowers
+        - gate angles  (+accel as support)
+        - seatposition (+accel as support)
+        - gate force   (+accel as support)
+        - gate force agains gate angle
+        - stretcher force
+        - stretcher force agains gate angle
+        - propulsive force?
+    """
 
-    # Crewreport, all data already available.
 
 
-    # Rowerreport
+    """
+    Rower report, one for each rower
+      - table met targets erbij
+      - graphs
+        - gate angle
+        - gate force X/Y
+        - power, handlevel, handlevdsseat
+        - stretcher forces
+
+    """
     rwcnt = gd.sessionInfo['RowerCnt']
     boattype = gd.sessionInfo['BoatType']
     
@@ -289,9 +285,7 @@ def pieceCalculations(nm, sp, a):
     # slip
 
 
-    # normalize data
-    #   from  catch1 to catch2
-    gd.norm_arrays = np.empty((100, a.shape[1]))
+    # normalize data for the averaged stroke in this piece
     for i in range(a.shape[1]):
         l = sp[1]-sp[0]+2  # iets langer vanwege complete cyclus
         x = np.arange(l)
@@ -302,7 +296,7 @@ def pieceCalculations(nm, sp, a):
         # print(f'xnew {xnew}')
         # print(a[0:l, i])
 
-        gd.norm_arrays[:, i] = g(xnew)
+        gd.norm_arrays[idx, :, i] = g(xnew)
 
     # normalize profile_data
 

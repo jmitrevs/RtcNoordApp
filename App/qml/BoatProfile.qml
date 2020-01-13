@@ -74,7 +74,7 @@ Item {
             Layout.fillHeight: true
                 
             Layout.minimumWidth: 1000
-            Layout.minimumHeight: 400
+            Layout.minimumHeight: 600
         }
     }
 }

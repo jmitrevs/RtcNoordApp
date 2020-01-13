@@ -1,6 +1,7 @@
 """Utility functions for the RTCnoord app"""
 
 import sys, os, subprocess, socket, mpv, math, time, csv, yaml, copy, shlex
+from pathlib import Path
 
 import numpy as np
 from scipy import signal
@@ -14,63 +15,87 @@ Hz = 50
 prof_pcs = ['start', 't20', 't24', 't28', 't32', 'max']
 
 def startup():
-    """Load the config file to find the data and session to use.
+    """Determine platform we are on.
+Load the config file to find the data and session to use.
 
-    Create a config file in $HOME/.rtcnoord, if it does not exist.
+    Create a config file in the appropriate location, if it does not exist.
     """
     
     rtcnoordconfig = """# Initial .noordrtc file
-# Where all data is to be found wrt the users homedir
-BaseDir: Roeien/Meten/RtcNoordApp
+# Where all user data is to be found wrt the users homedir
+BaseDir: RtcNoord
 
 # Name of last session, None if none
 Session: None
 
 """
-    homedir = os.path.expanduser('~')
-    configfile = homedir + '/.rtcnoord'
+
+    # determine OS
+    gd.os = sys.platform
     try:
-        fd = open(configfile, 'r')
+        os.environ['ANDROID_ARGUMENT']
+        gd.os = 'android'
+    except KeyError:
+        pass
+    
+    if gd.os == 'linux' or gd.os == 'android':
+        gd.configfile = Path.home() / '.config' / 'rtcnoord'
+    elif gd.os == 'win32':
+        gd.configfile = Path.home() / 'Application Data' / 'Local Settings' / 'AppAuthor' / 'rtcnoord'
+    elif gd.os == 'darwin':
+        gd.configfile = Path.home() / 'Library' / 'Application Support' / 'rtcnoord'
+    
+    try:
+        fd = Path.open(gd.configfile, 'r')
         rtcnoordconfig = fd.read()
     except IOError:
-        fd = open(configfile, 'w')
+        if gd.os == 'win32':
+            # appauthor dir?
+            pass
+        fd = Path.open(gd.configfile, 'w')
         fd.write(rtcnoordconfig)
 
     # we now have a configfile
     config = yaml.load(rtcnoordconfig)
+
     return config
 
-
-def sessionFile(session):
-    """Return the path to the session."""
-    file = os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/session_data/' + session + '.yaml'
-    return file
-
-def videoFile(mp4file):
-    """Return the path to the session."""
-    file = os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/videos/' + mp4file
-    return file
-
-
-def configsFile(conf):
-    """Return the path to the config yaml file."""
-    file = os.path.expanduser('~') + '/' + gd.config['BaseDir'] + '/configs/' + conf + '.yaml'
-    return file
+def saveConfig(config):
+    """Save config data to the yaml file."""
+    fd = Path.open(gd.configfile, 'w')
+    yaml.dump(config, fd)
 
 def readGlobals():
     """Return the GlobalSettings from the config."""
-    file = configsFile('GlobalSettings')
     try:
-        fd = open(file, 'r')
+        fd = Path.open(configsDir() / 'GlobalSettings.yaml')
         inhoud = fd.read()
     except IOError:
         print(f'Cannot read GlobalSettings file.')
         exit()
 
     globals = yaml.load(inhoud)
-    # print(globals)
     return globals
 
+def configsDir():
+    """Return the path to the configs dir."""
+    path = Path.home() / gd.config['BaseDir'] / 'configs'
+    return path
+
+def csvsDir():
+    """Return the path to the csv_data dir."""
+    path = Path.home() / gd.config['BaseDir'] / 'csv_data'
+    return path
+
+def sessionsDir():
+    """Return the path to the session_data dir."""
+    path = Path.home() / gd.config['BaseDir'] / 'session_data'
+    return path
+
+def cachesDir():
+    """Return the path to the caches dir."""
+    path = Path.home() / gd.config['BaseDir'] / 'caches'
+    return path
 
 # select and read session info
 def selectSession():
@@ -83,11 +108,11 @@ def selectSession():
         print('No session set, should not happen')
 
     session = gd.config['Session']
-    file = sessionFile(session)
+    file = sessionsDir() / (session + '.yaml')
 
     inhoud = ''
     try:
-        fd = open(file, 'r')
+        fd = Path.open(file, 'r')
         inhoud = fd.read()
     except IOError:
         print(f'SelectSession: cannot read Sessions file, should not happen   {file}')
@@ -99,17 +124,13 @@ def selectSession():
     # new config set
     return yaml.load(inhoud)
 
+
 def saveSessionInfo(sessionInfo):
     """Save session data to the yaml file."""
-    file = sessionFile(gd.config['Session'])
-    fd = open(file, 'w')
+    file = sessionsDir() / (gd.config['Session'] + '.yaml')
+    fd = Path.open(file, 'w')
     yaml.dump(sessionInfo, fd)
 
-def saveConfig(config):
-    """Save config data to the yaml file."""
-    file = os.path.expanduser('~') + '/.rtcnoord'
-    fd = open(file, 'w')
-    yaml.dump(config, fd)
 
 
 def calibrate(secondary=False):
@@ -133,11 +154,11 @@ def readCsvData(config, csvdata):
     Csv data can use comma or tab as delimiter
     """
     
-    filename = os.path.expanduser('~') + '/' + config['BaseDir'] + '/csv_data/' + config["Session"] + '.csv'
-    file = open(filename, newline='')
-    dialect = csv.Sniffer().sniff(file.read(20000))
-    file.seek(0)
-    reader = csv.reader(file, dialect)    
+    path = csvsDir() / (config['Session'] + '.csv')
+    fd = Path.open(path, newline='')
+    dialect = csv.Sniffer().sniff(fd.read(20000))
+    fd.seek(0)
+    reader = csv.reader(fd, dialect)    
 
     # als we de logger direct kunnen gebruiken!
     # preheader:  rtcnoord, logger, filename, from, to
@@ -300,7 +321,7 @@ def n_catches(n, x):
             break
     return ll
 
-# 
+#
 def prof_pieces(pieces):
     """Returns profile piece indices in correct order or [] if not complete"""
     r = []
@@ -329,6 +350,12 @@ def prof_pieces(pieces):
 
 
 # Video processing
+def videoFile(mp4file):
+    """Return the path to the session."""
+    path = Path.home() / gd.config['BaseDir'] / 'videos' / mp4file
+    return path
+
+
 #    test mpv availability!
 def startVideo():
     gd.player = mpv.MPV()

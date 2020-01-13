@@ -1,6 +1,8 @@
 """Global data for the app."""
 
-#
+# the host operating system
+os = None
+configfile = None
 config = None
 
 # data from the GlobalSettings yaml file
@@ -42,15 +44,15 @@ cal_value2 = None
 
 # profile available?
 profile_available = False
-# number of strokes to average over for the profile
-averaging = 1
+# averaging or not
+averaging = False
 #
 boattablemodel = []
 
 #
 boatPlots = None
 
-# the averaged data and normalized data
+# the averaged data and normalized data (pieces, length, sensors)
 norm_arrays = None
 out = None
 

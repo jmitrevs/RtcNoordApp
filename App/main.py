@@ -107,7 +107,7 @@ def main():
     
     locale.setlocale(locale.LC_NUMERIC, "C");
 
-    # needed by filedialog
+    # needed by filedialog  (bepaald waar configfile van Qt komt te staan)  Dit voor rtcnoordconfig gebruiken?
     app.setOrganizationName("RTC noord")
     app.setOrganizationDomain("RTC")
     app.setApplicationName("RtcNoordApp")

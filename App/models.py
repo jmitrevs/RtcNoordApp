@@ -221,10 +221,7 @@ class BoatTableModel(QAbstractTableModel):
     
     @pyqtSlot(bool)
     def set_averaging(self, checked):
-        if checked:
-            gd.averaging = 1
-        else:
-            gd.averaging = 10
+        gd.averaging = not checked
         self.make_profile()
 
     def fillBoatTable(self, out):
@@ -266,7 +263,7 @@ class BoatTableModel(QAbstractTableModel):
             if gd.profile_available:
                 gd.boatPlots.del_all()
             return False
-        out = profile(p, gd.averaging)
+        out = profile(p)
 
         self.fillBoatTable(out)
         # en gd.rowertablemodel.fillRowerTable(out)
@@ -276,14 +273,12 @@ class BoatTableModel(QAbstractTableModel):
 
     @pyqtSlot()
     def make_profile(self):
-
         self.prepareData()
         gd.boatPlots.update_figure()
         
 
     @pyqtSlot()
     def make_report(self):
-
         self.prepareData()
 
         # maak een pdf versie van het profile rapport

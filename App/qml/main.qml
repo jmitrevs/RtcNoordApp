@@ -19,7 +19,6 @@ ApplicationWindow {
 	folder: draw_mpl.csvDir
         onAccepted: {
             draw_mpl.createSessionCsv(fileUrl);
-	    Qt.quit()
         }
     } 
 

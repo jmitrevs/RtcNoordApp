@@ -4,6 +4,6 @@ Item {
 
 
     Text {
-	text: 'Nog wat ...\n    XY plots, ..'
+	text: 'Nog wat ...\n    XY plots, ..  blad met video besturing, ook zonder data. Met ook langzaam vooruit en achteruit'
     }
 }
